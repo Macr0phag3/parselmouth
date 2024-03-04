@@ -1,6 +1,8 @@
 # parselmouth
 一个自动化的 Python 沙箱逃逸 payload bypass 框架
 
+<img alt="image" src="https://github.com/Macr0phag3/parselmouth/assets/20874963/e4f2765d-ba39-49ba-bcf7-02ab3e83a042">
+
 ## 快速入门
 - python 版本最好是 >= 3.10
 - 安装依赖: `pip install -r requirements`
@@ -32,6 +34,6 @@ print(status, c_result, result)
 
 
 ## Others
-<img src="https://clean-1252075454.cos.ap-nanjing.myqcloud.com/20200528120800990.png" width="500">
+<img src="https://clean-1252075454.cos.ap-nanjing.myqcloud.com/20200528120800990.png" width="400">
 
 [![Stargazers over time](https://starchart.cc/Macr0phag3/parselmouth.svg)](https://starchart.cc/Macr0phag3/parselmouth)
