@@ -3,18 +3,18 @@
 
 <img alt="image" src="https://github.com/Macr0phag3/parselmouth/assets/20874963/e4f2765d-ba39-49ba-bcf7-02ab3e83a042">
 
-## 快速入门
+## 1. 快速入门
 - python 版本最好是 >= 3.10
 - 安装依赖: `pip install -r requirements`
 
-### 通过 CLI 使用
+### 1.1 通过 CLI 使用
 - 获取帮助信息：`python parselmouth.py -h`
 - 指定 payload 与 rule: `python parselmouth.py  --payload "__import__('os').popen('whoami').read()" --rule "__" "." "'" '"' "read" "chr"`
 - 可以通过 `--specify-bypass` 指定 bypass function 的黑白名单；例如如果不希望 int 通过 unicode 字符的规范化进行 bypass，可以指定参数: `--specify-bypass '{"black": {"Bypass_Int": ["by_unicode"]}}'`
 - 通过指定参数 `-v` 可以增加输出的信息；通过 `-vv` 可以输出 debug 信息，但通常是不需要的
 - 在定制化 bypass 函数之后，如果想做测试，可以将测试的 payload 和 rule 放在 `run_test.py` 里面，然后通过 `python parselmouth.py --run-test` 进行测试（直接运行 `run_test.py` 也行）
 
-### 通过 import 使用
+### 1.2 通过 import 使用
 ```python
 import parselmouth as p9h
 
@@ -33,7 +33,7 @@ print(status, c_result, result)
 - `depth`: 通常情况下不需要使用这个参数；打印信息时所需要的缩进数量
 - `cannot_bypass`: 通常情况下不需要使用这个参数；用于指定无法 bypass 的情况，值示例 `["chr(97)"]`
 
-### 定制化使用
+### 1.3 定制化使用
 **在定制化之前，最好先阅读下[这篇解释原理的文章](https://www.tr0y.wang/2024/03/04/parselmouth/)以及 `parselmouth.py`、`bypass_tools.py` 的主要代码**
 
 方法一：参考文章 [传送门](https://www.tr0y.wang/2024/03/04/parselmouth/#%E5%AE%9A%E5%88%B6%E5%8C%96%E5%BC%80%E5%8F%91)
@@ -44,7 +44,7 @@ print(status, c_result, result)
 - 对已有的 ast 类型，需要新增不同的处理函数，则需要在 `bypass_tools.py` 中找到对应的 bypass 类型，并新增一个 `by_` 开头的方法。同一个类下的 bypass 函数，使用顺序取决于对应类中定义的顺序，先被定义的函数会优先尝试进行 bypass
 
 
-## 当前 bypass function
+## 2. 当前 bypass function
 
 目前支持：
 
@@ -74,7 +74,7 @@ print(status, c_result, result)
 如果在使用的过程中发现有比较好用的 bypass 手法，或者任何问题都可以提交 issue :D
 
 
-## Others
+## 3. Others
 <img src="https://clean-1252075454.cos.ap-nanjing.myqcloud.com/20200528120800990.png" width="400">
 
 [![Stargazers over time](https://starchart.cc/Macr0phag3/parselmouth.svg)](https://starchart.cc/Macr0phag3/parselmouth)
