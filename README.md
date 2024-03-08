@@ -33,7 +33,7 @@ print(status, c_result, result)
 - `depth`: 通常情况下不需要使用这个参数；打印信息时所需要的缩进数量
 - `cannot_bypass`: 通常情况下不需要使用这个参数；用于指定无法 bypass 的情况，值示例 `["chr(97)"]`
 
-### 定制化 bypass 逻辑
+### 定制化使用
 **在定制化之前，最好先阅读下[这篇解释原理的文章](https://www.tr0y.wang/2024/03/04/parselmouth/)以及 `parselmouth.py`、`bypass_tools.py` 的主要代码**
 
 方法一：参考文章 [传送门](https://www.tr0y.wang/2024/03/04/parselmouth/#%E5%AE%9A%E5%88%B6%E5%8C%96%E5%BC%80%E5%8F%91)
