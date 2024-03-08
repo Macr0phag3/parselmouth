@@ -10,7 +10,7 @@
 ### 通过 CLI 使用
 - 获取帮助信息：`python parselmouth.py -h`
 - 指定 payload 与 rule: `python parselmouth.py  --payload "__import__('os').popen('whoami').read()" --rule "__" "." "'" '"' "read" "chr"`
-- 可以通过 `--specify-bypass` 指定 bypass function 的黑白名单；例如如果不希望通过 unicode 字符的规范化进行 bypass，可以指定参数: `--specify-bypass '{"black": {"Bypass_Int": ["by_unicode"]}}'`
+- 可以通过 `--specify-bypass` 指定 bypass function 的黑白名单；例如如果不希望 int 通过 unicode 字符的规范化进行 bypass，可以指定参数: `--specify-bypass '{"black": {"Bypass_Int": ["by_unicode"]}}'`
 - 通过指定参数 `-v` 可以增加输出的信息；通过 `-vv` 可以输出 debug 信息，但通常是不需要的
 - 在定制化 bypass 函数之后，如果想做测试，可以将测试的 payload 和 rule 放在 `run_test.py` 里面，然后通过 `python parselmouth.py --run-test` 进行测试（直接运行 `run_test.py` 也行）
 
@@ -19,8 +19,8 @@
 import parselmouth as p9h
 
 
-p9h.BLACK_CHAR = [".", "'", '"', "unicode_forbidden", "chr", "dict"]
-runner = p9h.P9H("__import__('os').popen('whoami').read()", versbose=0)
+p9h.BLACK_CHAR = [".", "'", '"', "chr", "dict"]
+runner = p9h.P9H("__import__('os').popen('whoami').read()", specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}}, versbose=0)
 result = runner.visit()
 status, c_result = p9h.color_check(result)
 print(status, c_result, result)
@@ -28,7 +28,7 @@ print(status, c_result, result)
 
 `p9h.P9H` 关键参数解释：
 - `source_code`: 需要 bypass 的 payload
-- `specify_bypass_map`: 指定 bypass function 的黑白名单；例如如果不希望通过 unicode 字符的规范化进行 bypass，可以传参 `{"black": {"Bypass_Int": ["by_unicode"]}}`
+- `specify_bypass_map`: 指定 bypass function 的黑白名单；例如如果不希望变量名通过 unicode 字符的规范化进行 bypass，可以传参 `{"black": {"Bypass_Name": ["by_unicode"]}}`
 - `versbose`: 输出的详细程度（`0` ~ `3`）
 - `depth`: 通常情况下不需要使用这个参数；打印信息时所需要的缩进数量
 - `cannot_bypass`: 通常情况下不需要使用这个参数；用于指定无法 bypass 的情况，值示例 `["chr(97)"]`

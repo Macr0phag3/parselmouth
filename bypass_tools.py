@@ -313,7 +313,7 @@ class Bypass_String(_Bypass):
             for s in get_stack()
             if s[1].startswith("by_")
         ]
-        if s[0][:2] == s[1][:2] and s[0][2] == s[1][2][::-1]:
+        if len(s) > 1 and s[0][:2] == s[1][:2] and s[0][2] == s[1][2][::-1]:
             # 避免出现 "123" -> "123"[::-1][::-1] 的现象
             return repr(self.node._value)
 
@@ -340,9 +340,13 @@ class Bypass_String(_Bypass):
 
     @recursion_protect
     def by_bytes_1(self):
-        return self.P9H(
-            "+".join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value]),
-        ).visit()
+        return (
+            "("
+            + self.P9H(
+                "+".join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value]),
+            ).visit()
+            + ")"
+        )
 
     @recursion_protect
     def by_bytes_2(self):
