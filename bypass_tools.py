@@ -54,16 +54,17 @@ def get_stack():
 
 
 class _Bypass:
-    def __init__(self, rule, node, useless_func, depth):
+    def __init__(self, rule, node, cannot_bypass, depth, specify_bypass_map):
         self.node = node
         self.P9H = functools.partial(
             p9h.P9H,
-            useless_func=useless_func,
+            cannot_bypass=cannot_bypass,
+            specify_bypass_map=specify_bypass_map,
             depth=depth,
             versbose=0,
         )
-        # p9h.VERBOSE = 0
         p9h.BLACK_CHAR = rule
+        # p9h.VERBOSE = 0
 
     def get_map(self):
         # bypass 函数的顺序取决于对应类中定义的顺序
@@ -134,14 +135,14 @@ class Bypass_Int(_Bypass):
                 return None
 
             if set(str(target)).issubset(single_valid_num):
-                return f"{old_expr}{target}"
+                return f"{old_expr}x{target}"
 
             first = not bool(old_expr)
 
             for op in ops:
                 for left in _valid_num:
                     n_left = eval(left)
-                    left = "x" + left
+                    left = "x" + left if n_left else left
                     for right in _valid_num:
                         n_right = eval(right)
                         right = "x" + right
@@ -283,10 +284,6 @@ class Bypass_Int(_Bypass):
 
     @recursion_protect
     def by_unicode(self):
-        if "unicode_forbidden" in p9h.BLACK_CHAR:
-            # 规则中禁止通过 Unicode 字符绕过
-            return self.node._value
-
         umap = dict(zip(string.digits, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"))
         return self.P9H(
             f'int({repr("".join([umap[i] for i in str(self.node._value)]))})',
@@ -299,15 +296,30 @@ class Bypass_String(_Bypass):
         self.node._value = getattr(self.node, "value")
 
     @recursion_protect
-    def by_reverse(self):
-        return self.P9H(
-            f"{repr(self.node._value[::-1])}[::-1]",
-        ).visit()
+    def by_char(self):
+        # print("by_char", self.node._value)
+        return (
+            "("
+            + self.P9H(
+                "+".join([f"chr({ord(i)})" for i in self.node._value]),
+            ).visit()
+            + ")"
+        )
 
     @recursion_protect
-    def by_char(self):
+    def by_reverse(self):
+        s = [
+            (s[0], s[1], s[2]["self"].node._value)
+            for s in get_stack()
+            if s[1].startswith("by_")
+        ]
+        if s[0][:2] == s[1][:2] and s[0][2] == s[1][2][::-1]:
+            # 避免出现 "123" -> "123"[::-1][::-1] 的现象
+            return repr(self.node._value)
+
+        # print("by_reverse", self.node._value)
         return self.P9H(
-            "+".join([f"chr({ord(i)})" for i in self.node._value]),
+            f"{repr(self.node._value[::-1])}[::-1]",
         ).visit()
 
     @recursion_protect
@@ -349,10 +361,6 @@ class Bypass_Name(_Bypass):
         self.node._value = getattr(self.node, "id")
 
     def by_unicode(self):
-        if "unicode_forbidden" in p9h.BLACK_CHAR:
-            # 规则中禁止通过 Unicode 字符绕过
-            return self.node._value
-
         umap = dict(
             zip(
                 string.digits + string.ascii_letters + "_",

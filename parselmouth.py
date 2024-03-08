@@ -1,4 +1,6 @@
 import ast
+import json
+import sys
 import argparse
 
 from colorama import Fore, Style
@@ -37,14 +39,38 @@ def check(payload):
 
 
 class P9H(ast._Unparser):
-    def __init__(self, source_code, useless_func, depth, versbose=1):
+    def __init__(
+        self,
+        source_code,
+        depth=0,
+        versbose=1,
+        cannot_bypass=[],
+        specify_bypass_map={},
+    ):
         self.source_code = source_code
         self.source_node = (
             source_code if isinstance(source_code, ast.AST) else ast.parse(source_code)
         )
         self.verbose = versbose
-        self.useless_func = useless_func
+        self.cannot_bypass = cannot_bypass
         self.depth = depth + 1
+        self.specify_bypass_map = specify_bypass_map
+
+        for _type in specify_bypass_map:
+            for cls_name in specify_bypass_map[_type]:
+                for func_name in specify_bypass_map[_type][cls_name]:
+                    if not (cls_name and func_name):
+                        sys.exit("[x] white_bypass/black_bypass format is `class.func`")
+
+                    cls = vars(bypass_tools).get(cls_name, None)
+                    if not cls:
+                        sys.exit(f"[x] bypass class not found: {cls_name}")
+
+                    func = vars(cls).get(func_name, None)
+                    if not func:
+                        sys.exit(
+                            f"[x] bypass func not found: {func_name} in {cls_name}"
+                        )
 
         super().__init__()
 
@@ -75,7 +101,7 @@ class P9H(ast._Unparser):
             self.cprint(put_color(f"do not need bypass", "green"), depth=self.depth + 2)
             return raw_code
 
-        if raw_code in self.useless_func:
+        if raw_code in self.cannot_bypass:
             # 已知无法 bypass
             self.cprint(
                 f"already knew {put_color(raw_code, 'blue')} cannot bypass",
@@ -89,6 +115,31 @@ class P9H(ast._Unparser):
 
         del bypass_funcs["by_raw"]
         for func in bypass_funcs:
+            cls_name, func_name = bypass_funcs[func].__qualname__.split(".")
+            if "white" in self.specify_bypass_map:
+                if (
+                    cls_name in self.specify_bypass_map["white"]
+                    and func_name not in self.specify_bypass_map["white"][cls_name]
+                ):
+                    self.cprint(
+                        f"{cls_name}.{func_name} is not in white_bypass",
+                        level="debug",
+                        depth=self.depth + 2,
+                    )
+                    continue
+
+            elif "black" in self.specify_bypass_map:
+                if (
+                    cls_name in self.specify_bypass_map["black"]
+                    and func_name in self.specify_bypass_map["black"][cls_name]
+                ):
+                    self.cprint(
+                        f"{cls_name}.{func_name} is in black_bypass",
+                        level="debug",
+                        depth=self.depth + 2,
+                    )
+                    continue
+
             old_len = len(self._source)
             result = bypass_funcs[func]()
             self._source = self._source[:old_len]
@@ -105,7 +156,7 @@ class P9H(ast._Unparser):
                 )
             else:
                 self.cprint(
-                    f"use {put_color(func, 'cyan')} bypass success",
+                    f"use {put_color(func, 'cyan')} {put_color('bypass success', 'green')}",
                     depth=self.depth + 2,
                 )
                 self.cprint(
@@ -118,8 +169,8 @@ class P9H(ast._Unparser):
 
         else:
             self.cprint(put_color(f"cannot bypass: {raw_code}", "yellow"))
-            self.useless_func.append(raw_code)
-            # print(f"{self.useless_func} 结束，回退")
+            self.cannot_bypass.append(raw_code)
+            # print(f"{self.cannot_bypass} 结束，回退")
             result = raw_code
 
         self._source += [result]
@@ -148,7 +199,8 @@ class P9H(ast._Unparser):
                 bypass_tools.Bypass_Name(
                     BLACK_CHAR,
                     node,
-                    useless_func=self.useless_func,
+                    cannot_bypass=self.cannot_bypass,
+                    specify_bypass_map=self.specify_bypass_map,
                     depth=self.depth,
                 ).get_map(),
                 **{"by_raw": _by_raw},
@@ -176,13 +228,15 @@ class P9H(ast._Unparser):
             int: bypass_tools.Bypass_Int(
                 BLACK_CHAR,
                 node,
-                useless_func=self.useless_func,
+                cannot_bypass=self.cannot_bypass,
+                specify_bypass_map=self.specify_bypass_map,
                 depth=self.depth,
             ).get_map(),
             str: bypass_tools.Bypass_String(
                 BLACK_CHAR,
                 node,
-                useless_func=self.useless_func,
+                cannot_bypass=self.cannot_bypass,
+                specify_bypass_map=self.specify_bypass_map,
                 depth=self.depth,
             ).get_map(),
         }
@@ -219,7 +273,8 @@ class P9H(ast._Unparser):
                 bypass_tools.Bypass_Attribute(
                     BLACK_CHAR,
                     node,
-                    useless_func=self.useless_func,
+                    cannot_bypass=self.cannot_bypass,
+                    specify_bypass_map=self.specify_bypass_map,
                     depth=self.depth,
                 ).get_map(),
                 **{"by_raw": _by_raw},
@@ -242,7 +297,8 @@ class P9H(ast._Unparser):
                 bypass_tools.Bypass_Keyword(
                     BLACK_CHAR,
                     node,
-                    useless_func=self.useless_func,
+                    cannot_bypass=self.cannot_bypass,
+                    specify_bypass_map=self.specify_bypass_map,
                     depth=self.depth,
                 ).get_map(),
                 **{"by_raw": _by_raw},
@@ -277,13 +333,45 @@ class P9H(ast._Unparser):
                 bypass_tools.Bypass_Call(
                     BLACK_CHAR,
                     node,
-                    useless_func=self.useless_func,
+                    cannot_bypass=self.cannot_bypass,
+                    specify_bypass_map=self.specify_bypass_map,
                     depth=self.depth,
                 ).get_map(),
                 **{"by_raw": _by_raw},
             ),
             node,
         )
+
+    def visit_UnaryOp(self, node):
+        # 这个函数比较特殊，目前主要在处理负数的情况
+        # 因为负数整体不被视为数字类型，而是 UnaryOp + Num
+        operator = self.unop[node.op.__class__.__name__]
+        operator_precedence = self.unop_precedence[operator]
+
+        if operator in ["-"] and type(getattr(node.operand, "value", None)) == int:
+            node.value = int(ast.unparse(node))
+            return self.try_bypass(
+                dict(
+                    bypass_tools.Bypass_Int(
+                        BLACK_CHAR,
+                        node,
+                        cannot_bypass=self.cannot_bypass,
+                        specify_bypass_map=self.specify_bypass_map,
+                        depth=self.depth,
+                    ).get_map(),
+                    **{"by_raw": lambda: self.write(str(node.value))},
+                ),
+                node,
+            )
+
+        with self.require_parens(operator_precedence, node):
+            self.write(operator)
+            # factor prefixes (+, -, ~) shouldn't be separated
+            # from the value they belong, (e.g: +1 instead of + 1)
+            if operator_precedence is not ast._Precedence.FACTOR:
+                self.write(" ")
+            self.set_precedence(operator_precedence, node.operand)
+            self.traverse(node.operand)
 
 
 FORMAT_SPACE = " "
@@ -311,6 +399,11 @@ if __name__ == "__main__":
     group.add_argument("--run-test", action="store_true", help="run test")
     parser.add_argument("-v", action="count", default=0, help="verbose level")
     parser.add_argument("--rule", nargs="+", default="", help="rules")
+    parser.add_argument(
+        "--specify-bypass",
+        default="{}",
+        help='eg. {"white": {"Bypass_String": ["by_dict"]}, "black": []}',
+    )
     args = parser.parse_args()
 
     if args.run_test:
@@ -318,9 +411,16 @@ if __name__ == "__main__":
     else:
         print(f"[*] payload: {put_color(args.payload, 'blue')}")
         print(f"  [*] rules: {put_color(args.rule, 'cyan')}")
+
+        specify_bypass_map = json.loads(args.specify_bypass)
+        print(f"  [*] specify bypass map: {specify_bypass_map}")
         print(f"  [*] versbose: {put_color(args.v, 'white')}")
         BLACK_CHAR = args.rule
-        p9h = P9H(args.payload, [], 0, versbose=args.v)
+        p9h = P9H(
+            args.payload,
+            versbose=args.v,
+            specify_bypass_map=specify_bypass_map,
+        )
         result, c_payload = color_check(p9h.visit())
 
         print(

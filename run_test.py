@@ -55,7 +55,7 @@ for payload in test_map:
     for rule in test_map[payload]:
         p9h.BLACK_CHAR = rule
         bypassed, c_result = p9h.color_check(
-            p9h.P9H(payload, useless_func=[], depth=1, versbose=0).visit()
+            p9h.P9H(payload, depth=1, versbose=0).visit()
         )
         print(
             f"  - [{p9h.put_color(bypassed, 'green' if bypassed else 'red')}] "
