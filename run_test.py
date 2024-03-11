@@ -54,10 +54,11 @@ print("[+] 开始测试")
 for payload in test_map:
     for rule in test_map[payload]:
         p9h.BLACK_CHAR = rule
-        bypassed, c_result = p9h.color_check(
-            p9h.P9H(payload, depth=1, versbose=0).visit()
-        )
+        p9h_ins = p9h.P9H(payload, depth=1, versbose=0)
+        bypassed, c_result = p9h.color_check(p9h_ins.visit())
         print(
             f"  - [{p9h.put_color(bypassed, 'green' if bypassed else 'red')}] "
             f"{p9h.put_color(payload, 'white')} => {c_result} with {p9h.put_color(p9h.BLACK_CHAR, 'yellow')}"
         )
+        # print(p9h_ins.bypass_history)
+
