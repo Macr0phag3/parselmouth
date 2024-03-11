@@ -54,17 +54,16 @@ def get_stack():
 
 
 class _Bypass:
-    def __init__(self, rule, node, cannot_bypass, depth, specify_bypass_map):
+    def __init__(self, rule, node, p9h_self):
         self.node = node
         self.P9H = functools.partial(
             p9h.P9H,
-            cannot_bypass=cannot_bypass,
-            specify_bypass_map=specify_bypass_map,
-            depth=depth,
-            versbose=0,
+            bypass_history=p9h_self.bypass_history,
+            specify_bypass_map=p9h_self.specify_bypass_map,
+            depth=p9h_self.depth + 3 if p9h_self.verbose >= 2 else p9h_self.depth + 2,
+            versbose=p9h_self.verbose,
         )
         p9h.BLACK_CHAR = rule
-        # p9h.VERBOSE = 0
 
     def get_map(self):
         # bypass 函数的顺序取决于对应类中定义的顺序
@@ -78,8 +77,8 @@ class _Bypass:
 class Bypass_Int(_Bypass):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.node._value = getattr(self.node, "value")
 
+        self.node._value = getattr(self.node, "value")
         self.translate_map = {
             0: [
                 "False",
@@ -121,11 +120,11 @@ class Bypass_Int(_Bypass):
 
     @recursion_protect
     def by_bin(self):
-        return bin(int(self.node._value))
+        return bin(self.node._value)
 
     @recursion_protect
     def by_hex(self):
-        return hex(int(self.node._value))
+        return hex(self.node._value)
 
     @recursion_protect
     def by_cal(self):
@@ -163,7 +162,7 @@ class Bypass_Int(_Bypass):
                             _old_expr = (
                                 f"{old_expr}{v}"
                                 if v in _valid_num
-                                else f"{old_expr}({left}{op}{right})"
+                                else f"{old_expr}{left}{op}{right}"
                             )
 
                         if abs(v - target) > abs(n_left - target):
@@ -181,7 +180,9 @@ class Bypass_Int(_Bypass):
                             # print(f"  - 尝试运算符 {new_op}")
                             if new_op == "-":
                                 # print("    - 求", f"{left}{op}{right} - n == {target} ?")
-                                if abs(n_left - target) > abs(target - v - n_left):
+                                if v <= 0 or abs(n_left - target) > abs(
+                                    target - v - n_left
+                                ):
                                     # print(stacks)
                                     # print(f"    - 会爆栈，不用这个运算符了 {new_op}, v={v}, target={target}")
                                     continue
@@ -268,15 +269,6 @@ class Bypass_Int(_Bypass):
             if not p9h.check(_result):
                 return _result
 
-            _result = result.replace("(", "").replace(")", "").replace("x", "")
-            try:
-                sympy.simplify(_result)
-            except:
-                pass
-            else:
-                if not p9h.check(_result):
-                    return _result
-
             return result.replace("x", "")
 
         else:
@@ -285,9 +277,12 @@ class Bypass_Int(_Bypass):
     @recursion_protect
     def by_unicode(self):
         umap = dict(zip(string.digits, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"))
-        return self.P9H(
-            f'int({repr("".join([umap[i] for i in str(self.node._value)]))})',
-        ).visit()
+        if self.node._value >= 0:
+            return self.P9H(
+                f'int({repr("".join([umap.get(i, i) for i in str(self.node._value)]))})',
+            ).visit()
+        else:
+            return str(self.node._value)
 
 
 class Bypass_String(_Bypass):
@@ -326,7 +321,7 @@ class Bypass_String(_Bypass):
     def by_dict(self):
         letters = [i for i in string.ascii_letters + "_" if not p9h.check(i)]
         if not letters:
-            return self.node._value
+            return repr(self.node._value)
 
         res = self.P9H(
             f"list(dict({letters[0]}{self.node._value}=()))[0][1:]",
@@ -336,27 +331,27 @@ class Bypass_String(_Bypass):
             eval(res)
             return res
         except Exception:
-            return self.node._value
+            return repr(self.node._value)
 
-    @recursion_protect
-    def by_bytes_1(self):
-        return (
-            "("
-            + self.P9H(
-                "+".join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value]),
-            ).visit()
-            + ")"
-        )
+    # @recursion_protect
+    # def by_bytes_1(self):
+    #     return (
+    #         "("
+    #         + self.P9H(
+    #             "+".join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value]),
+    #         ).visit()
+    #         + ")"
+    #     )
 
-    @recursion_protect
-    def by_bytes_2(self):
-        byte_list = [ord(i) for i in self.node._value]
-        if all(map(lambda x: x in range(0, 256), byte_list)):
-            return self.P9H(
-                f"bytes({str(byte_list)})",
-            ).visit()
+    # @recursion_protect
+    # def by_bytes_2(self):
+    #     byte_list = [ord(i) for i in self.node._value]
+    #     if all(map(lambda x: x in range(0, 256), byte_list)):
+    #         return self.P9H(
+    #             f"bytes({str(byte_list)})",
+    #         ).visit()
 
-        return self.node._value
+    #     return repr(self.node._value)
 
 
 class Bypass_Name(_Bypass):
@@ -425,3 +420,4 @@ class Bypass_Keyword(_Bypass):
             result += self.P9H(arg).visit() + "="
 
         return result + self.P9H(value).visit()
+
