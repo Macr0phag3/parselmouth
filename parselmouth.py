@@ -44,7 +44,7 @@ class P9H(ast._Unparser):
         source_code,
         depth=0,
         versbose=1,
-        cannot_bypass=[],
+        bypass_history=None,
         specify_bypass_map={},
     ):
         self.source_code = source_code
@@ -52,8 +52,12 @@ class P9H(ast._Unparser):
             source_code if isinstance(source_code, ast.AST) else ast.parse(source_code)
         )
         self.verbose = versbose
-        self.cannot_bypass = cannot_bypass
-        self.depth = depth + 1
+        if bypass_history == None:
+            self.bypass_history = {"success": {}, "failed": []}
+        else:
+            self.bypass_history = bypass_history
+
+        self.depth = depth
         self.specify_bypass_map = specify_bypass_map
 
         for _type in specify_bypass_map:
@@ -92,16 +96,31 @@ class P9H(ast._Unparser):
 
         print(put_color(f"{'  '*(depth)}[{level.upper()}]", color), *args)
 
-    def try_bypass(self, bypass_funcs, node):
+    def try_bypass(self, bypass_funcs):
         old_len = len(self._source)
         bypass_funcs["by_raw"]()
         raw_code = "".join(self._source[old_len:])
-        self.cprint(f"got payload: {put_color(raw_code, 'blue')}", depth=self.depth + 1)
+        self.cprint(
+            f"target payload: {put_color(raw_code, 'blue')}", depth=self.depth + 1
+        )
         if not check(raw_code):
             self.cprint(put_color(f"do not need bypass", "green"), depth=self.depth + 2)
             return raw_code
 
-        if raw_code in self.cannot_bypass:
+        # 清空修改，保护堆栈
+        self._source = self._source[:old_len]
+
+        if raw_code in self.bypass_history["success"]:
+            self.cprint(
+                f"already knew {put_color(raw_code, 'blue')} can bypass: {self.bypass_history['success'][raw_code]}",
+                level="info",
+                depth=self.depth + 2,
+            )
+            result = self.bypass_history["success"][raw_code]
+            self._source += [result]
+            return result
+
+        if raw_code in self.bypass_history["failed"]:
             # 已知无法 bypass
             self.cprint(
                 f"already knew {put_color(raw_code, 'blue')} cannot bypass",
@@ -110,12 +129,10 @@ class P9H(ast._Unparser):
             )
             return raw_code
 
-        # 清空修改，保护堆栈
-        self._source = self._source[:old_len]
-
         del bypass_funcs["by_raw"]
         for func in bypass_funcs:
             cls_name, func_name = bypass_funcs[func].__qualname__.split(".")
+
             if "white" in self.specify_bypass_map:
                 if (
                     cls_name in self.specify_bypass_map["white"]
@@ -141,10 +158,17 @@ class P9H(ast._Unparser):
                     continue
 
             old_len = len(self._source)
+            self.cprint(
+                f"try {put_color(func, 'cyan')}",
+                level="debug",
+                depth=self.depth + 2,
+            )
+            # 执行 bypass 函数
             result = bypass_funcs[func]()
             self._source = self._source[:old_len]
 
             if result is None:
+                self.bypass_history["failed"].append((func, raw_code))
                 continue
 
             hited_chr = check(result)
@@ -152,24 +176,27 @@ class P9H(ast._Unparser):
                 self.cprint(
                     f"use {put_color(func, 'cyan')} cannot bypass {put_color(raw_code, 'blue')}, hited: {put_color(hited_chr, 'yellow')}",
                     level="debug",
-                    depth=self.depth + 2,
+                    depth=self.depth + 3 if self.verbose >= 2 else self.depth + 2,
                 )
             else:
                 self.cprint(
                     f"use {put_color(func, 'cyan')} {put_color('bypass success', 'green')}",
-                    depth=self.depth + 2,
+                    depth=self.depth + 3 if self.verbose >= 2 else self.depth + 2,
                 )
                 self.cprint(
                     put_color(raw_code, "blue"),
                     "->",
                     put_color(result, "green"),
-                    depth=self.depth + 2,
+                    depth=self.depth + 3 if self.verbose >= 2 else self.depth + 2,
                 )
+                self.bypass_history["success"][raw_code] = result
                 break
 
         else:
-            self.cprint(put_color(f"cannot bypass: {raw_code}", "yellow"))
-            self.cannot_bypass.append(raw_code)
+            self.cprint(
+                put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
+            )
+            self.bypass_history["failed"].append(raw_code)
             # print(f"{self.cannot_bypass} 结束，回退")
             result = raw_code
 
@@ -196,16 +223,9 @@ class P9H(ast._Unparser):
 
         return self.try_bypass(
             dict(
-                bypass_tools.Bypass_Name(
-                    BLACK_CHAR,
-                    node,
-                    cannot_bypass=self.cannot_bypass,
-                    specify_bypass_map=self.specify_bypass_map,
-                    depth=self.depth,
-                ).get_map(),
+                bypass_tools.Bypass_Name(BLACK_CHAR, node, p9h_self=self).get_map(),
                 **{"by_raw": _by_raw},
-            ),
-            node,
+            )
         )
 
     def visit_Constant(self, node):
@@ -225,33 +245,21 @@ class P9H(ast._Unparser):
                 self._write_constant(node.value)
 
         value_map = {
-            int: bypass_tools.Bypass_Int(
-                BLACK_CHAR,
-                node,
-                cannot_bypass=self.cannot_bypass,
-                specify_bypass_map=self.specify_bypass_map,
-                depth=self.depth,
-            ).get_map(),
-            str: bypass_tools.Bypass_String(
-                BLACK_CHAR,
-                node,
-                cannot_bypass=self.cannot_bypass,
-                specify_bypass_map=self.specify_bypass_map,
-                depth=self.depth,
-            ).get_map(),
+            int: bypass_tools.Bypass_Int,
+            str: bypass_tools.Bypass_String,
         }
 
-        func_map = value_map.get(type(node.value), value_map.get(node.value, None))
+        bypass_cls_map = value_map.get(
+            type(node.value), value_map.get(node.value, None)
+        )
 
-        if func_map is None:
+        if bypass_cls_map is None:
             # 没有定义 bypass 方法的基础常量
             return _by_raw()
 
+        func_map = bypass_cls_map(BLACK_CHAR, node, p9h_self=self).get_map()
         func_map["by_raw"] = _by_raw
-        return self.try_bypass(
-            func_map,
-            node,
-        )
+        return self.try_bypass(func_map)
 
     def visit_Attribute(self, node):
         def _by_raw():
@@ -271,15 +279,10 @@ class P9H(ast._Unparser):
         return self.try_bypass(
             dict(
                 bypass_tools.Bypass_Attribute(
-                    BLACK_CHAR,
-                    node,
-                    cannot_bypass=self.cannot_bypass,
-                    specify_bypass_map=self.specify_bypass_map,
-                    depth=self.depth,
+                    BLACK_CHAR, node, p9h_self=self
                 ).get_map(),
                 **{"by_raw": _by_raw},
-            ),
-            node,
+            )
         )
 
     def visit_keyword(self, node):
@@ -294,16 +297,9 @@ class P9H(ast._Unparser):
 
         return self.try_bypass(
             dict(
-                bypass_tools.Bypass_Keyword(
-                    BLACK_CHAR,
-                    node,
-                    cannot_bypass=self.cannot_bypass,
-                    specify_bypass_map=self.specify_bypass_map,
-                    depth=self.depth,
-                ).get_map(),
+                bypass_tools.Bypass_Keyword(BLACK_CHAR, node, p9h_self=self).get_map(),
                 **{"by_raw": _by_raw},
-            ),
-            node,
+            )
         )
 
     def visit_Call(self, node):
@@ -330,16 +326,9 @@ class P9H(ast._Unparser):
 
         return self.try_bypass(
             dict(
-                bypass_tools.Bypass_Call(
-                    BLACK_CHAR,
-                    node,
-                    cannot_bypass=self.cannot_bypass,
-                    specify_bypass_map=self.specify_bypass_map,
-                    depth=self.depth,
-                ).get_map(),
+                bypass_tools.Bypass_Call(BLACK_CHAR, node, p9h_self=self).get_map(),
                 **{"by_raw": _by_raw},
-            ),
-            node,
+            )
         )
 
     def visit_UnaryOp(self, node):
@@ -352,16 +341,9 @@ class P9H(ast._Unparser):
             node.value = int(ast.unparse(node))
             return self.try_bypass(
                 dict(
-                    bypass_tools.Bypass_Int(
-                        BLACK_CHAR,
-                        node,
-                        cannot_bypass=self.cannot_bypass,
-                        specify_bypass_map=self.specify_bypass_map,
-                        depth=self.depth,
-                    ).get_map(),
+                    bypass_tools.Bypass_Int(BLACK_CHAR, node, p9h_self=self).get_map(),
                     **{"by_raw": lambda: self.write(str(node.value))},
-                ),
-                node,
+                )
             )
 
         with self.require_parens(operator_precedence, node):
@@ -428,3 +410,4 @@ if __name__ == "__main__":
             put_color("success" if result else "failed", "green" if result else "red"),
         )
         print("[*]", put_color(args.payload, "blue"), "=>", c_payload)
+
