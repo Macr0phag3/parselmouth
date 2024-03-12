@@ -24,7 +24,10 @@ def put_color(string, color, bold=True):
 def color_check(result):
     hited_chr = check(result)
     for hited in hited_chr:
-        result = result.replace(hited, f"{Style.BRIGHT}{Fore.YELLOW}{hited}{Fore.BLUE}")
+        result = result.replace(hited, f"{Style.BRIGHT}{Fore.YELLOW}{hited}")
+
+    if hited_chr:
+        result += Fore.BLUE
 
     c_result = put_color(result, "green")
     return not bool(hited_chr), c_result
@@ -127,6 +130,7 @@ class P9H(ast._Unparser):
                 level="info",
                 depth=self.depth + 2,
             )
+            self._source += [raw_code]
             return raw_code
 
         del bypass_funcs["by_raw"]
@@ -190,6 +194,7 @@ class P9H(ast._Unparser):
                     depth=self.depth + 3 if self.verbose >= 2 else self.depth + 2,
                 )
                 self.bypass_history["success"][raw_code] = result
+                # print("succ", result)
                 break
 
         else:
@@ -197,7 +202,7 @@ class P9H(ast._Unparser):
                 put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
             )
             self.bypass_history["failed"].append(raw_code)
-            # print(f"{self.cannot_bypass} 结束，回退")
+            # print(f"结束，回退, {raw_code}")
             result = raw_code
 
         self._source += [result]
