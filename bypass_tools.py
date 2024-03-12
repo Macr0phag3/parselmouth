@@ -2,7 +2,7 @@ import operator
 import string
 import inspect
 import functools
-
+import copy
 import sympy
 
 import parselmouth as p9h
@@ -94,7 +94,6 @@ class Bypass_Int(_Bypass):
             ],
             2: ["len( str( () ) )"],
         }
-        self.translate_map[1].extend([f"-~{i}" for i in self.translate_map[0] + [0]])
 
         # 填充 0-9 缺失的数字
         self.valid_num = []
@@ -110,9 +109,11 @@ class Bypass_Int(_Bypass):
 
     @recursion_protect
     def by_trans(self):
-        if self.node._value in self.translate_map:
+        translate_map = copy.deepcopy(self.translate_map)
+        translate_map[1].extend([f"-~{i}" for i in translate_map[0] + [0]])
+        if self.node._value in translate_map:
             # 直接返回替代
-            for i in self.translate_map[self.node._value]:
+            for i in translate_map[self.node._value]:
                 if not p9h.check(i):
                     return self.P9H(str(i)).visit()
 
@@ -133,7 +134,7 @@ class Bypass_Int(_Bypass):
             if target in stacks or target in can_not_cal:
                 return None
 
-            if set(str(target)).issubset(single_valid_num):
+            if set(str(target)).issubset(single_valid_num) and not p9h.check(target):
                 return f"{old_expr}x{target}"
 
             first = not bool(old_expr)
@@ -152,18 +153,17 @@ class Bypass_Int(_Bypass):
                             continue
 
                         if v == target:
+                            # print(f"{old_expr}{left}{op}{right}")
                             return f"{old_expr}{left}{op}{right}"
 
                         if first:
-                            _old_expr = (
-                                str(v) if v in _valid_num else f"{left}{op}{right}"
-                            )
+                            _old_expr = f"({left}{op}{right})"
+                            if v in valid_num_map:
+                                _old_expr = "x" + valid_num_map[v]
                         else:
-                            _old_expr = (
-                                f"{old_expr}{v}"
-                                if v in _valid_num
-                                else f"{old_expr}{left}{op}{right}"
-                            )
+                            _old_expr = old_expr + f"{left}{op}{right}"
+                            if v in valid_num_map:
+                                _old_expr = old_expr + "x" + valid_num_map[v]
 
                         if abs(v - target) > abs(n_left - target):
                             # print(f"  - 显然，经过运算，相比 left={left} 距离目标更远了，算式无效")
@@ -256,18 +256,24 @@ class Bypass_Int(_Bypass):
         target = self.node._value
         single_valid_num = {str(i) for i in range(10) if not p9h.check(i)}
         _valid_num = self.valid_num[:]
-
+        # print(_valid_num)
+        valid_num_map = dict(zip(map(int, map(eval, _valid_num)), _valid_num))
         can_not_cal = []
         try:
             result = _calculate(target, "")
+            # print(result)
         except RecursionError:
             print(f"\n[x] 爆栈了: calculate, {target}, {ops}, {self.valid_num}")
             __import__("sys").exit(1)
 
         if result is not None:
-            _result = str(sympy.simplify(result)).replace(" ", "").replace("x", "")
-            if not p9h.check(_result):
-                return _result
+            try:
+                _result = str(sympy.simplify(result)).replace("x", "")
+            except Exception:
+                pass
+            else:
+                if not p9h.check(_result):
+                    return _result
 
             return result.replace("x", "")
 
@@ -277,12 +283,9 @@ class Bypass_Int(_Bypass):
     @recursion_protect
     def by_unicode(self):
         umap = dict(zip(string.digits, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"))
-        if self.node._value >= 0:
-            return self.P9H(
-                f'int({repr("".join([umap.get(i, i) for i in str(self.node._value)]))})',
-            ).visit()
-        else:
-            return str(self.node._value)
+        return self.P9H(
+            f'int({repr("".join([umap.get(i, i) for i in str(self.node._value)]))})',
+        ).visit()
 
 
 class Bypass_String(_Bypass):
@@ -333,25 +336,25 @@ class Bypass_String(_Bypass):
         except Exception:
             return repr(self.node._value)
 
-    # @recursion_protect
-    # def by_bytes_1(self):
-    #     return (
-    #         "("
-    #         + self.P9H(
-    #             "+".join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value]),
-    #         ).visit()
-    #         + ")"
-    #     )
+    @recursion_protect
+    def by_bytes_1(self):
+        return (
+            "("
+            + self.P9H(
+                "+".join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value]),
+            ).visit()
+            + ")"
+        )
 
-    # @recursion_protect
-    # def by_bytes_2(self):
-    #     byte_list = [ord(i) for i in self.node._value]
-    #     if all(map(lambda x: x in range(0, 256), byte_list)):
-    #         return self.P9H(
-    #             f"bytes({str(byte_list)})",
-    #         ).visit()
+    @recursion_protect
+    def by_bytes_2(self):
+        byte_list = [ord(i) for i in self.node._value]
+        if all(map(lambda x: x in range(0, 256), byte_list)):
+            return self.P9H(
+                f"bytes({str(byte_list)}).decode()",
+            ).visit()
 
-    #     return repr(self.node._value)
+        return repr(self.node._value)
 
 
 class Bypass_Name(_Bypass):
@@ -385,6 +388,7 @@ class Bypass_Name(_Bypass):
 
             _result = _result.replace(kwd, fixed_str + "".join(_kwd))
 
+        # print(_result)
         return _result
 
 
