@@ -31,7 +31,7 @@ print(status, c_result, result)
 - `specify_bypass_map`: 指定 bypass function 的黑白名单；例如如果不希望变量名通过 unicode 字符的规范化进行 bypass，可以传参 `{"black": {"Bypass_Name": ["by_unicode"]}}`
 - `versbose`: 输出的详细程度（`0` ~ `3`）
 - `depth`: 通常情况下不需要使用这个参数；打印信息时所需要的缩进数量
-- `cannot_bypass`: 通常情况下不需要使用这个参数；用于指定无法 bypass 的情况，值示例 `["chr(97)"]`
+- `bypass_history`: 通常情况下不需要使用这个参数；用于缓存 `可以 bypass` 和 `不可以 bypass` 的已知情况，值示例 `{"success": {}, "failed": []}`
 
 ### 1.3 定制化使用
 **在定制化之前，最好先阅读下[这篇解释原理的文章](https://www.tr0y.wang/2024/03/04/parselmouth/)以及 `parselmouth.py`、`bypass_tools.py` 的主要代码**
