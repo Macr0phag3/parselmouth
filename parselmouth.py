@@ -81,6 +81,32 @@ class P9H(ast._Unparser):
 
         super().__init__()
 
+    def _write_constant(self, value):
+        if isinstance(value, (float, complex)):
+            # Substitute overflowing decimal literal for AST infinities,
+            # and inf - inf for NaNs.
+            self.write(
+                repr(value)
+                .replace("inf", ast._INFSTR)
+                .replace("nan", f"({ast._INFSTR}-{ast._INFSTR})")
+            )
+        elif isinstance(value, str):
+            self._write_str_avoiding_backslashes(value)
+        else:
+            self.write(repr(value))
+
+    def _write_str_avoiding_backslashes(
+        self, string, *, quote_types=ast._ALL_QUOTES, _write=True
+    ):
+        """Write string literal value with a best effort attempt to avoid backslashes."""
+        quote_types = [i for i in quote_types if not check(i)]
+        string, quote_types = self._str_literal_helper(string, quote_types=quote_types)
+        quote_type = quote_types[0]
+        result = f"{quote_type}{string}{quote_type}"
+        if _write:
+            self.write(f"{quote_type}{string}{quote_type}")
+        return result
+
     def cprint(self, *args, depth=None, level="info"):
         if level not in ["warn", "error"]:
             if self.verbose < 1:
@@ -415,4 +441,3 @@ if __name__ == "__main__":
             put_color("success" if result else "failed", "green" if result else "red"),
         )
         print("[*]", put_color(args.payload, "blue"), "=>", c_payload)
-
