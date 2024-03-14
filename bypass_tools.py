@@ -3,6 +3,7 @@ import string
 import inspect
 import functools
 import copy
+
 import sympy
 
 import parselmouth as p9h
@@ -56,6 +57,7 @@ def get_stack():
 class _Bypass:
     def __init__(self, rule, node, p9h_self):
         self.node = node
+        self.p9h_self = p9h_self
         self.P9H = functools.partial(
             p9h.P9H,
             bypass_history=p9h_self.bypass_history,
@@ -294,8 +296,13 @@ class Bypass_String(_Bypass):
         self.node._value = getattr(self.node, "value")
 
     @recursion_protect
+    def by_quote_trans(self):
+        # p9h.P9H._write_str_avoiding_backslashes 中
+        # 做了特殊处理，这里直接使用 repr 即可
+        return repr(self.node._value)
+
+    @recursion_protect
     def by_char(self):
-        # print("by_char", self.node._value)
         return (
             "("
             + self.P9H(
@@ -312,13 +319,14 @@ class Bypass_String(_Bypass):
             if s[1].startswith("by_")
         ]
         if len(s) > 1 and s[0][:2] == s[1][:2] and s[0][2] == s[1][2][::-1]:
+            # 放弃 bypass
             # 避免出现 "123" -> "123"[::-1][::-1] 的现象
             return repr(self.node._value)
 
-        # print("by_reverse", self.node._value)
-        return self.P9H(
+        result = self.P9H(
             f"{repr(self.node._value[::-1])}[::-1]",
         ).visit()
+        return result
 
     @recursion_protect
     def by_dict(self):
@@ -424,4 +432,3 @@ class Bypass_Keyword(_Bypass):
             result += self.P9H(arg).visit() + "="
 
         return result + self.P9H(value).visit()
-
