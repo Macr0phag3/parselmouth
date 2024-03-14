@@ -1,4 +1,3 @@
-import ast
 import parselmouth as p9h
 
 
@@ -139,14 +138,23 @@ simple_testcases = {
     },
     "Bypass_String": {
         "'macr0phag3'": [
-            {"rule": ["macr0phag3"], "bypass_func": ["*"]},
+            {
+                "rule": ["macr0phag3"],
+                "bypass_func": [
+                    "by_char",
+                    "by_reverse",
+                    "by_dict",
+                    "by_bytes_1",
+                    "by_bytes_2",
+                ],
+            },
             {
                 "rule": ["'"],
-                "bypass_func": ["by_char", "by_dict", "by_bytes_1", "by_bytes_2"],
+                "bypass_func": ["by_quote_trans", "by_reverse"],
             },
             {
                 "rule": ['"'],
-                "bypass_func": ["by_char", "by_dict", "by_bytes_1", "by_bytes_2"],
+                "bypass_func": ["by_quote_trans", "by_reverse"],
             },
             {
                 "rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0"],
@@ -172,8 +180,8 @@ simple_testcases = {
     },
     "Integrated": {
         "__import__('os').popen('whoami').read()": [
-            {"rule": [".", "read", "popen"], "bypass_func": []},
             {"rule": ["read", "'", '"'], "bypass_func": []},
+            {"rule": [".", "read", "popen"], "bypass_func": []},
             {"rule": ["__", ".", "'", '"', "read", "chr", "ᶜ"], "bypass_func": []},
             {"rule": ["__", ".", "'", '"', "read", "chr", "ᶜ", "="], "bypass_func": []},
             {
@@ -217,4 +225,3 @@ for bypass_type in simple_testcases:
         )
 
     print()
-
