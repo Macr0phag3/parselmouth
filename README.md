@@ -56,7 +56,7 @@ print(status, c_result, result)
 | Bypass_Int    | by_cal   | `10` | `5*2`    |将数字转为算式 |
 | Bypass_Int    | by_unicode   | `10` | `int('𝟣𝟢')`    | int + unicode 绕过|
 | ————   | ————   | ———— | ———— | ————|
-| Bypass_String    | by_quote_trans   | `["macr0phag3"]` | `['macr0phag3']`  | bytes 绕过限制 2|
+| Bypass_String    | by_quote_trans   | `"macr0phag3"` | `'macr0phag3'`  | 单双引号互相替换 |
 | Bypass_String    | by_reverse   | `"macr0phag3"` | `"3gahp0rcam"[::-1]`    | 字符串逆序绕过|
 | Bypass_String    | by_char   | `"macr0phag3"` |  `(chr(109) + chr(97) + chr(99) + chr(114) + chr(48) + chr(112) + chr(104) + chr(97) + chr(103) + chr(51))`   | char 绕过字符限制|
 | Bypass_String    | by_dict   | `"macr0phag3"` | `list(dict(amacr0phag3=()))[0][1:]`  | dict 绕过限制|
