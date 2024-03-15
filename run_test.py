@@ -1,7 +1,11 @@
+import time
+
 import parselmouth as p9h
 
 
 def bypass(payload, name, specify_bypass_map):
+    global failed, total
+
     p9h.BLACK_CHAR = config["rule"]
     p9h_ins = p9h.P9H(
         payload,
@@ -9,13 +13,19 @@ def bypass(payload, name, specify_bypass_map):
         depth=1,
         versbose=0,
     )
+    st = time.time()
     bypass_result = p9h_ins.visit()
+    et = time.time()
     bypassed, c_result = p9h.color_check(bypass_result)
     bypassed = bypassed and eval(bypass_result) == eval(payload)
+    total += 1
+    if not bypassed:
+        failed += 1
+
     print(
-        f"    - [{p9h.put_color(bypassed, 'green' if bypassed else 'red')}] "
+        f"    - [{round(et-st, 2):.2f}s] {p9h.put_color(['FAIL', 'SUCC'][bypassed], 'green' if bypassed else 'red')} "
         f"{p9h.put_color(name, 'blue')} "
-        f"=> {c_result} with {p9h.put_color(p9h.BLACK_CHAR, 'yellow')}"
+        f"=> {c_result} with {p9h.put_color(p9h.BLACK_CHAR, 'white')}"
     )
 
 
@@ -146,18 +156,31 @@ simple_testcases = {
                     "by_dict",
                     "by_bytes_1",
                     "by_bytes_2",
+                    "by_join_map_str",
+                ],
+            },
+            {
+                "rule": ["macr0phag3", "+"],
+                "bypass_func": [
+                    "by_char",
+                    "by_bytes_1",
+                    "by_format",
                 ],
             },
             {
                 "rule": ["'"],
-                "bypass_func": ["by_quote_trans", "by_reverse"],
+                "bypass_func": ["*"],
             },
             {
                 "rule": ['"'],
-                "bypass_func": ["by_quote_trans", "by_reverse"],
+                "bypass_func": ["*"],
             },
             {
                 "rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0"],
+                "bypass_func": [],
+            },
+            {
+                "rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0", "+"],
                 "bypass_func": [],
             },
         ],
@@ -192,6 +215,7 @@ simple_testcases = {
     },
 }
 print("[*] run simple test cases\n")
+failed = total = 0
 for bypass_type in simple_testcases:
     attr = vars(getattr(p9h.bypass_tools, bypass_type, dict))
     print(f"[+] {bypass_type}")
@@ -215,13 +239,19 @@ for bypass_type in simple_testcases:
             else:
                 bypass(payload, "BruteForce", {})
 
-    print("[+] report")
+    print("  [+] report")
     # print(test_report)
     for i in test_report:
         _color = ["yellow", "green"][bool(test_report[i])]
         print(
-            f"  [-] {p9h.put_color(i, _color)}: "
+            f"    [-] {p9h.put_color(i, _color)}: "
             f"{p9h.put_color(test_report[i], 'cyan')}"
         )
 
     print()
+
+print(f"[*] 总计测试用例数量: {p9h.put_color(total, 'cyan')}")
+if failed:
+    print(p9h.put_color(f"[!] 发现 {failed} 个失败 case", "yellow"))
+else:
+    print(p9h.put_color(f"[*] 所有测试用例均通过检测", "green"))

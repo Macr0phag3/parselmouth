@@ -19,12 +19,14 @@ def recursion_protect(func):
 
             stack.append((s[0], s[1], s[2]["self"].node._value))
 
-        if (self.__class__.__name__, func.__name__, self.node._value) in stack:
+        var = self.node._value
+        if (self.__class__.__name__, func.__name__, var) in stack:
             # 本轮调用的 函数+参数 在调用链之前就出现过
             # 说明不同的 bypass 函数之间出现了循环依赖
             # 这个时候应该舍弃掉这个 bypass 函数
             return None
 
+        # print(func.__name__, self.node._value, stack)
         return func(self)
 
     return _protect
@@ -57,6 +59,8 @@ def get_stack():
 class _Bypass:
     def __init__(self, rule, node, p9h_self):
         self.node = node
+        # print("p9h_self.depth", p9h_self.depth)
+        # print("p9h_self.bypass_history", p9h_self.bypass_history.__sizeof__())
         self.p9h_self = p9h_self
         self.P9H = functools.partial(
             p9h.P9H,
@@ -295,6 +299,14 @@ class Bypass_String(_Bypass):
         super().__init__(*args, **kwargs)
         self.node._value = getattr(self.node, "value")
 
+    def _join(self, items):
+        if p9h.check("+"):
+            # + 在黑名单中，使用 str.join 替代
+            return self.P9H(f"str().join(({','.join(items)}))").visit()
+        else:
+            # 否则直接使用 +
+            return "(" + self.P9H(f"{'+'.join(items)}").visit() + ")"
+
     @recursion_protect
     def by_quote_trans(self):
         # p9h.P9H._write_str_avoiding_backslashes 中
@@ -302,14 +314,26 @@ class Bypass_String(_Bypass):
         return repr(self.node._value)
 
     @recursion_protect
+    def by_join_map_str(self):
+        return self.P9H(
+            f"str().join(map(chr, {[ord(i) for i in self.node._value]}))"
+        ).visit()
+
+    @recursion_protect
+    def by_format(self):
+        # 避免无限递归
+        _s = [i for i in get_stack() if i[1].startswith("by_")][1:]
+        for i in _s:
+            if i[1] == "by_format" and set(i[2]) | set("{}"):
+                return repr(self.node._value)
+
+        _loc = "{}" * len(self.node._value)
+        exp = [f"chr({ord(i)})" for i in self.node._value]
+        return self.P9H(f"'{_loc}'.format({','.join(exp)})").visit()
+
+    @recursion_protect
     def by_char(self):
-        return (
-            "("
-            + self.P9H(
-                "+".join([f"chr({ord(i)})" for i in self.node._value]),
-            ).visit()
-            + ")"
-        )
+        return self._join([f"chr({ord(i)})" for i in self.node._value])
 
     @recursion_protect
     def by_reverse(self):
@@ -334,25 +358,16 @@ class Bypass_String(_Bypass):
         if not letters:
             return repr(self.node._value)
 
-        res = self.P9H(
-            f"list(dict({letters[0]}{self.node._value}=()))[0][1:]",
-        ).visit()
-        try:
-            # 部分字符串无法作为标识符，这里检查一下
-            eval(res)
-            return res
-        except Exception:
+        iden = f"{letters[0]}{self.node._value}"
+        if not iden.isidentifier():
+            # 非法标识符
             return repr(self.node._value)
+
+        return self.P9H(f"list(dict({iden}=()))[0][1:]").visit()
 
     @recursion_protect
     def by_bytes_1(self):
-        return (
-            "("
-            + self.P9H(
-                "+".join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value]),
-            ).visit()
-            + ")"
-        )
+        return self._join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value])
 
     @recursion_protect
     def by_bytes_2(self):
