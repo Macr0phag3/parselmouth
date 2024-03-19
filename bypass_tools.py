@@ -13,7 +13,17 @@ def recursion_protect(func):
     @functools.wraps(func)
     def _protect(self):
         stack = []
-        for s in get_stack():
+        ns = get_stack()
+        # print(len(ns))
+        # print(
+        #     [
+        #         (i[0] + "." + i[1], i[2]["self"].node._value)
+        #         for i in get_stack()
+        #         if i[1].startswith("by_")
+        #     ]
+        # )
+        # print([(i[0] + "." + i[1]) for i in get_stack()])
+        for s in ns:
             if not s[1].startswith("by_"):
                 continue
 
@@ -32,12 +42,19 @@ def recursion_protect(func):
     return _protect
 
 
-def get_stack():
+def get_stack(num=0):
     used_funcs = []
-    stack = inspect.stack()
-    for frame_info in stack:
+    if num == 0:
+        stack = [i.frame for i in inspect.stack()]
+    else:
+        stack = []
+        ic = inspect.currentframe()
+        while ic and len(stack) <= num:
+            stack.append(ic)
+            ic = ic.f_back
+
+    for frame in stack:
         # 获取当前层的上下文信息
-        frame = frame_info.frame
         arg_info = inspect.getargvalues(frame)
 
         class_name = ""
@@ -48,7 +65,7 @@ def get_stack():
         used_funcs.append(
             (
                 class_name,
-                frame_info.function,
+                frame.f_code.co_name,
                 {k: arg_info.locals[k] for k in arg_info.args},
             )
         )
@@ -66,6 +83,7 @@ class _Bypass:
             p9h.P9H,
             bypass_history=p9h_self.bypass_history,
             specify_bypass_map=p9h_self.specify_bypass_map,
+            ensure_min=p9h_self.ensure_min,
             depth=p9h_self.depth + 3 if p9h_self.verbose >= 2 else p9h_self.depth + 2,
             versbose=p9h_self.verbose,
         )
@@ -104,12 +122,12 @@ class Bypass_Int(_Bypass):
         # 填充 0-9 缺失的数字
         self.valid_num = []
         for i in list(range(10))[::-1]:
-            if not p9h.check(i):
+            if not p9h.check(i, ignore_space=True):
                 self.valid_num.append(str(i))
 
             elif i in self.translate_map:
                 for j in self.translate_map[i]:
-                    if not p9h.check(j):
+                    if not p9h.check(j, ignore_space=True):
                         self.valid_num.append(str(j))
                         break
 
@@ -120,7 +138,7 @@ class Bypass_Int(_Bypass):
         if self.node._value in translate_map:
             # 直接返回替代
             for i in translate_map[self.node._value]:
-                if not p9h.check(i):
+                if not p9h.check(i, ignore_space=True):
                     return self.P9H(str(i)).visit()
 
         return str(self.node._value)
@@ -140,7 +158,9 @@ class Bypass_Int(_Bypass):
             if target in stacks or target in can_not_cal:
                 return None
 
-            if set(str(target)).issubset(single_valid_num) and not p9h.check(target):
+            if set(str(target)).issubset(single_valid_num) and not p9h.check(
+                target, ignore_space=True
+            ):
                 return f"{old_expr}x{target}"
 
             first = not bool(old_expr)
@@ -260,7 +280,9 @@ class Bypass_Int(_Bypass):
         ops = {op: fn for op, fn in _ops.items() if not p9h.check(op)}
 
         target = self.node._value
-        single_valid_num = {str(i) for i in range(10) if not p9h.check(i)}
+        single_valid_num = {
+            str(i) for i in range(10) if not p9h.check(i, ignore_space=True)
+        }
         _valid_num = self.valid_num[:]
         # print(_valid_num)
         valid_num_map = dict(zip(map(int, map(eval, _valid_num)), _valid_num))
@@ -275,16 +297,24 @@ class Bypass_Int(_Bypass):
         if result is not None:
             try:
                 _result = str(sympy.simplify(result)).replace("x", "")
-            except Exception:
+            except Exception as e:
                 pass
             else:
-                if not p9h.check(_result):
-                    return _result
+                if not p9h.check(_result, ignore_space=True):
+                    return self.P9H(_result).visit()
 
-            return result.replace("x", "")
+            return self.P9H(result.replace("x", "")).visit()
 
         else:
             return str(self.node._value)
+
+    @recursion_protect
+    def by_ord(self):
+        if 0 <= self.node._value < 0x110000:
+            return self.P9H(f"ord({repr(chr(self.node._value))})").visit()
+            # return f"ord({repr(chr(self.node._value))})"
+        else:
+            return self.node._value
 
     @recursion_protect
     def by_unicode(self):
@@ -302,10 +332,19 @@ class Bypass_String(_Bypass):
     def _join(self, items):
         if p9h.check("+"):
             # + 在黑名单中，使用 str.join 替代
-            return self.P9H(f"str().join(({','.join(items)}))").visit()
+            return self.P9H(f"''.join(({','.join(items)}))").visit()
         else:
             # 否则直接使用 +
             return "(" + self.P9H(f"{'+'.join(items)}").visit() + ")"
+
+    @recursion_protect
+    def by_empty_str(self):
+        # p9h.P9H._write_str_avoiding_backslashes 中
+        # 做了特殊处理，这里直接使用 repr 即可
+        if self.node._value == "":
+            return self.P9H(f"str()").visit()
+        else:
+            return repr(self.node._value)
 
     @recursion_protect
     def by_quote_trans(self):
@@ -316,8 +355,40 @@ class Bypass_String(_Bypass):
     @recursion_protect
     def by_join_map_str(self):
         return self.P9H(
-            f"str().join(map(chr, {[ord(i) for i in self.node._value]}))"
+            f"''.join(map(chr, {[ord(i) for i in self.node._value]}))"
         ).visit()
+
+    @recursion_protect
+    def by_dict(self):
+        # iden 用于利用标识符构建字符串的 bypass
+        iden = self.node._value
+        iden_tail = ""
+        if not iden.isidentifier():
+            iden_tail = "[1:]"
+            letters = [i for i in string.ascii_letters + "_" if not p9h.check(i)]
+            if not letters:
+                return repr(self.node._value)
+
+            iden = letters[0] + iden
+
+            if not iden.isidentifier():
+                # 非法标识符
+                return repr(self.node._value)
+
+        exps = [
+            f"list(dict({iden}=()))[0]",
+            f"list(dict({iden}=())).pop()",
+            f"dict({iden}=()).popitem()[0]",
+            f"next(iter(dict({iden}=())))",
+            f"min(dict({iden}=()))",
+            f"max(dict({iden}=()))",
+        ]
+        for exp in exps:
+            exp += iden_tail
+            if not p9h.check(exp):
+                return self.P9H(exp).visit()
+
+        return self.P9H(exp).visit()
 
     @recursion_protect
     def by_format(self):
@@ -353,26 +424,17 @@ class Bypass_String(_Bypass):
         return result
 
     @recursion_protect
-    def by_dict(self):
-        letters = [i for i in string.ascii_letters + "_" if not p9h.check(i)]
-        if not letters:
-            return repr(self.node._value)
-
-        iden = f"{letters[0]}{self.node._value}"
-        if not iden.isidentifier():
-            # 非法标识符
-            return repr(self.node._value)
-
-        return self.P9H(f"list(dict({iden}=()))[0][1:]").visit()
-
-    @recursion_protect
-    def by_bytes_1(self):
-        return self._join([f"str(bytes([{ord(i)}]))[2]" for i in self.node._value])
-
-    @recursion_protect
-    def by_bytes_2(self):
+    def by_bytes_single(self):
         byte_list = [ord(i) for i in self.node._value]
-        if all(map(lambda x: x in range(0, 256), byte_list)):
+        if all([i in range(0, 256) for i in byte_list]):
+            return self._join([f"str(bytes([{i}]))[2]" for i in byte_list])
+        else:
+            return repr(self.node._value)
+
+    @recursion_protect
+    def by_bytes_full(self):
+        byte_list = [ord(i) for i in self.node._value]
+        if all([i in range(0, 256) for i in byte_list]):
             return self.P9H(
                 f"bytes({str(byte_list)}).decode()",
             ).visit()
@@ -389,7 +451,7 @@ class Bypass_Name(_Bypass):
         umap = dict(
             zip(
                 string.digits + string.ascii_letters + "_",
-                "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫ᵃᵇᶜᵈᵉᶠᵍʰᵢʲᵏˡᵐⁿᵒᵖ𝐪ʳˢᵗᵘᵛʷˣʸᶻᴬᴮCᴰᴱFᴳᴴᴵᴶᴷᴸᴹᴺᴼᴾＱᴿ𝖲ᵀᵁⱽᵂⅩ𝖸Z＿",
+                "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫𝒂𝒃𝒄𝒅𝒆𝒇𝒈𝒉𝒊𝒋𝒌𝒍𝒎𝒏𝒐𝒑𝒒𝒓𝒔𝒕𝒖𝒗𝒘𝒙𝒚𝒛𝑨𝑩𝑪𝑫𝑬𝑭𝑮𝑯𝑰𝑱𝑲𝑳𝑴𝑵𝑶𝑷𝑸𝑹𝑺𝑻𝑼𝑽𝑾𝑿𝒀𝒁＿",
             )
         )
 

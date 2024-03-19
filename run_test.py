@@ -32,7 +32,10 @@ def bypass(payload, name, specify_bypass_map):
 simple_testcases = {
     "Bypass_Int": {
         "1": [
-            {"rule": ["1"], "bypass_func": ["by_trans", "by_cal", "by_unicode"]},
+            {
+                "rule": ["1"],
+                "bypass_func": ["by_trans", "by_cal", "by_unicode"],
+            },
             {
                 "rule": ["1", "True", "all"],
                 "bypass_func": ["by_trans", "by_cal", "by_unicode"],
@@ -76,11 +79,11 @@ simple_testcases = {
         "12": [
             {
                 "rule": ["12"],
-                "bypass_func": ["by_bin", "by_hex", "by_cal", "by_unicode"],
+                "bypass_func": ["by_bin", "by_hex", "by_ord", "by_cal", "by_unicode"],
             },
             {
                 "rule": ["12", "True"],
-                "bypass_func": ["by_bin", "by_hex", "by_cal", "by_unicode"],
+                "bypass_func": ["by_bin", "by_hex", "by_ord", "by_cal", "by_unicode"],
             },
         ],
         "1000": [
@@ -100,19 +103,17 @@ simple_testcases = {
                     "True",
                     "False",
                 ],
-                "bypass_func": [
-                    "by_cal",
-                ],
+                "bypass_func": ["by_cal", "by_ord"],
             }
         ],
         "2024": [
             {
                 "rule": ["2", "4"],
-                "bypass_func": ["by_bin", "by_hex", "by_cal", "by_unicode"],
+                "bypass_func": ["by_bin", "by_hex", "by_ord", "by_cal", "by_unicode"],
             },
             {
                 "rule": ["1", "2", "4", "*"],
-                "bypass_func": ["by_hex", "by_cal", "by_unicode"],
+                "bypass_func": ["by_hex", "by_cal", "by_ord", "by_unicode"],
             },
         ],
         "-1": [
@@ -141,7 +142,7 @@ simple_testcases = {
                 "bypass_func": ["by_cal"],
             },
             {
-                "rule": ["0", "1", "2", "3", "4", "5", "6", "7", "8"],
+                "rule": ["0", "1", "2", "3", "4", "5", "6", "7", "8", " "],
                 "bypass_func": ["by_cal"],
             },
         ],
@@ -154,44 +155,38 @@ simple_testcases = {
                     "by_char",
                     "by_reverse",
                     "by_dict",
-                    "by_bytes_1",
-                    "by_bytes_2",
+                    "by_bytes_single",
+                    "by_bytes_full",
                     "by_join_map_str",
                 ],
             },
             {
                 "rule": ["macr0phag3", "+"],
-                "bypass_func": [
-                    "by_char",
-                    "by_bytes_1",
-                    "by_format",
-                ],
+                "bypass_func": ["by_char", "by_bytes_single", "by_format"],
             },
+            {"rule": ["'"], "bypass_func": ["*"]},
+            {"rule": ['"'], "bypass_func": ["*"]},
+            {"rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0"], "bypass_func": []},
             {
-                "rule": ["'"],
-                "bypass_func": ["*"],
-            },
-            {
-                "rule": ['"'],
-                "bypass_func": ["*"],
-            },
-            {
-                "rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0"],
+                "rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0", "+", " "],
                 "bypass_func": [],
             },
-            {
-                "rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0", "+"],
-                "bypass_func": [],
-            },
+        ],
+        "'你好世界'": [
+            {"rule": ["'", '"'], "bypass_func": ["by_char", "by_dict"]},
+            {"rule": ["你"], "bypass_func": ["by_join_map_str"]},
         ],
     },
     "Bypass_Attribute": {
         "str.find": [
-            {"rule": ["."], "bypass_func": ["*"]},
+            {"rule": [" ", "."], "bypass_func": ["*"]},
             {"rule": ["find"], "bypass_func": ["*"]},
             {"rule": ["find", "chr", "ᶜ"], "bypass_func": ["*"]},
             {"rule": ["find", "chr", "ᶜ", ":"], "bypass_func": ["*"]},
-            {"rule": ["find", "chr", "ᶜ", ":", "0", "1"], "bypass_func": ["*"]},
+            {
+                "rule": [" ", "\t", "find", "chr", "ᶜ", ":", "0", "1"],
+                "bypass_func": ["*"],
+            },
         ],
     },
     "Bypass_Name": {
@@ -208,7 +203,21 @@ simple_testcases = {
             {"rule": ["__", ".", "'", '"', "read", "chr", "ᶜ"], "bypass_func": []},
             {"rule": ["__", ".", "'", '"', "read", "chr", "ᶜ", "="], "bypass_func": []},
             {
-                "rule": ["__", ".", "'", '"', "read", "chr", "ᶜ", "=", ":", "0", "1"],
+                "rule": [
+                    "__",
+                    ".",
+                    "'",
+                    '"',
+                    "read",
+                    "chr",
+                    "ᶜ",
+                    "=",
+                    ":",
+                    "0",
+                    "1",
+                    " ",
+                    "\t",
+                ],
                 "bypass_func": [],
             },
         ],

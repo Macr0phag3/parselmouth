@@ -33,12 +33,17 @@ def color_check(result):
     return not bool(hited_chr), c_result
 
 
-def check(payload):
+def check(payload, ignore_space=False):
     if isinstance(payload, ast.AST):
         payload = ast.unparse(payload)
 
     # self.cprint(f"检查是否命中黑名单: {payload}", level="debug")
-    return [i for i in BLACK_CHAR if i in str(payload)]
+    return [
+        i
+        for i in BLACK_CHAR
+        if (not ignore_space or (ignore_space and i not in [" ", "\t"]))
+        and i in str(payload)
+    ]
 
 
 class P9H(ast._Unparser):
@@ -48,8 +53,11 @@ class P9H(ast._Unparser):
         depth=0,
         versbose=1,
         bypass_history=None,
+        ensure_min=False,
         specify_bypass_map={},
     ):
+        _space = [i for i in [" ", "\t"] if not check(i)]
+        globals()["FORMAT_SPACE"] = ([""] + _space)[bool(_space)]
         self.source_code = source_code
         # print("source_code", depth, source_code)
         self.source_node = (
@@ -62,6 +70,7 @@ class P9H(ast._Unparser):
             self.bypass_history = bypass_history
 
         self.depth = depth
+        self.ensure_min = ensure_min
         self.specify_bypass_map = specify_bypass_map
 
         for _type in specify_bypass_map:
@@ -161,6 +170,9 @@ class P9H(ast._Unparser):
             return raw_code
 
         del bypass_funcs["by_raw"]
+
+        # 逐个尝试 bypass
+        min_exp = "1" * (10**5)
         for func in bypass_funcs:
             cls_name, func_name = bypass_funcs[func].__qualname__.split(".")
 
@@ -203,38 +215,67 @@ class P9H(ast._Unparser):
                 continue
 
             hited_chr = check(result)
+            _depth = self.depth + 3 if self.verbose >= 2 else self.depth + 2
             if hited_chr:
                 self.cprint(
                     f"use {put_color(func, 'cyan')} cannot bypass {put_color(raw_code, 'blue')}, hited: {put_color(hited_chr, 'yellow')}",
                     level="debug",
-                    depth=self.depth + 3 if self.verbose >= 2 else self.depth + 2,
+                    depth=_depth,
                 )
             else:
                 self.cprint(
                     f"use {put_color(func, 'cyan')} {put_color('bypass success', 'green')}",
-                    depth=self.depth + 3 if self.verbose >= 2 else self.depth + 2,
+                    depth=_depth,
                 )
+                if self.ensure_min and len(result) < len(min_exp):
+                    self.cprint(f"found min exp", depth=_depth)
+                    min_exp = result
+
                 self.cprint(
                     put_color(raw_code, "blue"),
                     "->",
                     put_color(result, "green"),
-                    depth=self.depth + 3 if self.verbose >= 2 else self.depth + 2,
+                    depth=_depth,
                 )
-                self.bypass_history["success"][raw_code] = result
-                # print("succ", result)
-                break
 
-        else:
+                if not self.ensure_min:
+                    min_exp = result
+                    break
+
+                # print("succ", result)
+                # break
+
+        if min_exp == "1" * (10**5):
+            # 说明未成功
             self.cprint(
                 put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
             )
             self.bypass_history["failed"].append(raw_code)
             # print(f"结束，回退, {raw_code}")
             result = raw_code
+        else:
+            result = min_exp
+            self.bypass_history["success"][raw_code] = result
 
         self._source += [result]
         # print("当前 payload:", self._source)
         return result
+
+    def write(self, *text):
+        """Add new source parts"""
+        stack = bypass_tools.get_stack(num=5)
+        _text = text[:]
+        if (
+            stack[2][1] == "visit_BinOp"
+            or "visit_List" in str(stack[3][2].get("inter", None))
+            or stack[4][1] == "visit_Call"
+        ):
+            _text = [i.replace(" ", FORMAT_SPACE) for i in text]
+        # else:
+        #     print("-" * 10, text, "-" * 10)
+        #     pprint.pprint(stack)
+        #     print()
+        self._source.extend(_text)
 
     def visit(self):
         self.cprint("try bypass:", put_color(self.source_code, "blue"), level="info")
@@ -342,7 +383,7 @@ class P9H(ast._Unparser):
                 comma = False
                 for e in node.args:
                     if comma:
-                        self.write(f",{FORMAT_SPACE}")
+                        self.write(f", ")
                     else:
                         comma = True
 
@@ -350,7 +391,7 @@ class P9H(ast._Unparser):
 
                 for e in node.keywords:
                     if comma:
-                        self.write(f",{FORMAT_SPACE}")
+                        self.write(f", ")
                     else:
                         comma = True
 
@@ -388,8 +429,10 @@ class P9H(ast._Unparser):
             self.traverse(node.operand)
 
 
-FORMAT_SPACE = " "
+Recursion_LIMIT = 5000
+sys.setrecursionlimit(Recursion_LIMIT)
 BLACK_CHAR = []
+FORMAT_SPACE = None
 
 if __name__ == "__main__":
     print(
@@ -408,9 +451,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="parselmouth, automated python sandbox escape payload bypass framework"
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--payload", help="bypass rule")
-    group.add_argument("--run-test", action="store_true", help="run test")
+    parser.add_argument("--payload", help="bypass rule")
     parser.add_argument("-v", action="count", default=0, help="verbose level")
     parser.add_argument("--rule", nargs="+", default="", help="rules")
     parser.add_argument(
@@ -418,27 +459,26 @@ if __name__ == "__main__":
         default="{}",
         help='eg. {"white": {"Bypass_String": ["by_dict"]}, "black": []}',
     )
+    parser.add_argument("--ensure-min", action="store_true", help="found min exp")
     args = parser.parse_args()
 
-    if args.run_test:
-        __import__("run_test")
-    else:
-        print(f"[*] payload: {put_color(args.payload, 'blue')}")
-        print(f"  [*] rules: {put_color(args.rule, 'cyan')}")
+    print(f"[*] payload: {put_color(args.payload, 'blue')}")
+    print(f"  [*] rules: {put_color(args.rule, 'cyan')}")
 
-        specify_bypass_map = json.loads(args.specify_bypass)
-        print(f"  [*] specify bypass map: {specify_bypass_map}")
-        print(f"  [*] versbose: {put_color(args.v, 'white')}")
-        BLACK_CHAR = args.rule
-        p9h = P9H(
-            args.payload,
-            versbose=args.v,
-            specify_bypass_map=specify_bypass_map,
-        )
-        result, c_payload = color_check(p9h.visit())
+    specify_bypass_map = json.loads(args.specify_bypass)
+    print(f"  [*] specify bypass map: {specify_bypass_map}")
+    print(f"  [*] versbose: {put_color(args.v, 'white')}")
+    BLACK_CHAR = args.rule
+    p9h = P9H(
+        args.payload,
+        versbose=args.v,
+        specify_bypass_map=specify_bypass_map,
+        ensure_min=args.ensure_min,
+    )
+    result, c_payload = color_check(p9h.visit())
 
-        print(
-            "[*] result:",
-            put_color("success" if result else "failed", "green" if result else "red"),
-        )
-        print("[*]", put_color(args.payload, "blue"), "=>", c_payload)
+    print(
+        "[*] result:",
+        put_color("success" if result else "failed", "green" if result else "red"),
+    )
+    print("[*]", put_color(args.payload, "blue"), "=>", c_payload)
