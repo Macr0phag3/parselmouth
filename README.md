@@ -63,21 +63,29 @@ print(status, c_result, result)
 | Bypass_Int    | by_hex   | `10` | `0xa`    |将数字转为十六进制 |
 | Bypass_Int    | by_cal   | `10` | `5*2`    |将数字转为算式 |
 | Bypass_Int    | by_unicode   | `10` | `int('𝟣𝟢')`    | int + unicode 绕过|
-| ————   | ————   | ———— | ———— | ————|
+
+|  类   |   方法名  | payload | bypass | 解释说明 |
+| ----- | -------- | ------- | ------- | ----- |
 | Bypass_String    | by_empty_str   | `""` | `str()`  | 构造空字符串 |
 | Bypass_String    | by_quote_trans   | `"macr0phag3"` | `'macr0phag3'`  | 单双引号互相替换 |
 | Bypass_String    | by_reverse   | `"macr0phag3"` | `"3gahp0rcam"[::-1]`    | 字符串逆序绕过|
 | Bypass_String    | by_char   | `"macr0phag3"` |  `(chr(109) + chr(97) + chr(99) + chr(114) + chr(48) + chr(112) + chr(104) + chr(97) + chr(103) + chr(51))`   | char 绕过字符限制|
 | Bypass_String    | by_dict   | `"macr0phag3"` | `list(dict(amacr0phag3=()))[0][1:]`  | dict 绕过限制|
 | Bypass_String    | by_bytes_single   | `"macr0phag3"` | `str(bytes([109]))[2] + str(bytes([97]))[2] + str(bytes([99]))[2] + str(bytes([114]))[2] + str(bytes([48]))[2] + str(bytes([112]))[2] + str(bytes([104]))[2] + str(bytes([97]))[2] + str(bytes([103]))[2] + str(bytes([51]))[2]`  | bytes 绕过限制|
-| Bypass_String    | by_bytes_full   | `"macr0phag3"` | `bytes([109, 97, 99, 114, 48, 112, 104, 97, 103, 51])`  | bytes 绕过限制 2|
-| Bypass_String    | by_join_map_str   | `"macr0phag3"` | `str().join(map(chr, [109, 97, 99, 114, 48, 112, 104, 97, 103, 51]))`  | format 绕过限制 2|
-| Bypass_String    | by_format   | `"macr0phag3"` | `'{}{}{}{}{}{}{}{}{}{}'.format(chr(109), chr(97), chr(99), chr(114), chr(48), chr(112), chr(104), chr(97), chr(103), chr(51))`  | format 绕过限制 2|
-| ————   | ————   | ———— | ———— | ————|
+| Bypass_String    | by_bytes_full   | `"macr0phag3"` | `bytes([109, 97, 99, 114, 48, 112, 104, 97, 103, 51])`  | bytes 绕过限制 2 |
+| Bypass_String    | by_join_map_str   | `"macr0phag3"` | `str().join(map(chr, [109, 97, 99, 114, 48, 112, 104, 97, 103, 51]))`  | join 绕过限制 |
+| Bypass_String    | by_format   | `"macr0phag3"` | `'{}{}{}{}{}{}{}{}{}{}'.format(chr(109), chr(97), chr(99), chr(114), chr(48), chr(112), chr(104), chr(97), chr(103), chr(51))`  | format 绕过限制 |
+
+|  类   |   方法名  | payload | bypass | 解释说明 |
+| ----- | -------- | ------- | ------- | ----- |
 | Bypass_Name    | by_unicode   | `__import__` | `_＿import_＿` | unicode 绕过|
-| ————   | ————   | ———— | ———— | ————|
-| Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | unicode 绕过|
-| ————   | ————   | ———— | ———— | ————|
+
+|  类   |   方法名  | payload | bypass | 解释说明 |
+| ----- | -------- | ------- | ------- | ----- |
+| Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过|
+
+|  类   |   方法名  | payload | bypass | 解释说明 |
+| ----- | -------- | ------- | ------- | ----- |
 | Bypass_Keyword    | by_unicode   | `str(object=1)` | `str(ᵒbject=1)` | unicode 绕过|
 
 
