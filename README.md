@@ -95,7 +95,38 @@ print(status, c_result, result)
 
 以及不论通过或没通过这个工具解开题目，都欢迎提交 issue 帮忙补充案例，多谢~
 
-## 3. Others
+## 3. 已知的手法待实现
+
+- [ ] 支持 payload 字符集合大小限制
+- [ ] `exec`、`eval` + `open` 执行库代码
+- [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`
+- [x] `'__builtins__'` -> `'\u005f\u005f\u0062\u0075\u0069\u006c\u0074\u0069\u006e\u0073\u005f\u005f'`
+- [ ] `"os"` -> `"o" + "s"`
+- [ ] `'__buil''tins__'` -> `str.__add__('__buil', 'tins__')`
+- [ ] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)`
+- [ ] `__import__` -> `getattr(__builtins__, "__import__")`
+- [ ] `__import__` -> `__builtins__.__dict__['__import__']`
+- [ ] `__import__` -> `__loader__().load_module`
+- [ ] `str.find` -> `vars(str)["find"]`
+- [ ] `str.find` -> `str.__dict__["find"]`  # 注意基础类型 或者 自定义 `__slots__` 没有 `__dict__` 属性
+- [ ] `",".join("123")` -> `"".__class__.join(",", "123")`
+- [ ] `",".join("123")` -> `str.join(",", "123")`
+- [ ] `"123"[0]` -> `"123".__getitem__(0)`
+- [ ] `"0123456789"` -> `sorted(set(str(hash(()))))`
+- [ ] `[1, 2, 3][0]` -> `[1, 2, 3].__getitem__()`
+- [ ] `2024` -> `next(reversed(range(2025)))`
+- [ ] `{"a": 1}["a"]` -> `{"a": 1}.pop("a")`
+- [ ] `1` -> `int(max(max(dict(a၁=()))))`
+- [ ] `[i for i in range(10) if i == 5]` -> `[[i][0]for(i)in(range(10))if(i)==5]`
+- [ ] `==` -> `in`
+- [ ] `True or False` -> `(True) | (False)`
+- [ ] `True or False` -> `bool(- (True) - (False))`
+- [ ] `True or False` -> `bool((True) + (False))`
+- [ ] `True and False` -> `(True) & (False)`
+- [ ] `True and False` -> `bool((True) * (False))`
+- [ ] `[2, 20, 30]` -> `[i for i in range(31) for j in range(31) if i==0 and j == 2 or i == 1 and j ==20 or i == 2 and j == 30]`
+
+## 4. Others
 <img src="https://clean-1252075454.cos.ap-nanjing.myqcloud.com/20200528120800990.png" width="400">
 
 [![Stargazers over time](https://starchart.cc/Macr0phag3/parselmouth.svg)](https://starchart.cc/Macr0phag3/parselmouth)
