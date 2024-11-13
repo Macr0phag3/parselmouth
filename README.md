@@ -65,6 +65,7 @@ print(status, c_result, result)
 | Bypass_Int    | by_hex   | `10` | `0xa`    |将数字转为十六进制 |
 | Bypass_Int    | by_cal   | `10` | `5*2`    |将数字转为算式 |
 | Bypass_Int    | by_unicode   | `10` | `int('𝟣𝟢')`    | int + unicode 绕过|
+| Bypass_Int    | by_ord   | `10` | `ord('\n')`    | ord 绕过|
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
@@ -77,6 +78,8 @@ print(status, c_result, result)
 | Bypass_String    | by_bytes_full   | `"macr0phag3"` | `bytes([109, 97, 99, 114, 48, 112, 104, 97, 103, 51])`  | bytes 绕过限制 2 |
 | Bypass_String    | by_join_map_str   | `"macr0phag3"` | `str().join(map(chr, [109, 97, 99, 114, 48, 112, 104, 97, 103, 51]))`  | join 绕过限制 |
 | Bypass_String    | by_format   | `"macr0phag3"` | `'{}{}{}{}{}{}{}{}{}{}'.format(chr(109), chr(97), chr(99), chr(114), chr(48), chr(112), chr(104), chr(97), chr(103), chr(51))`  | format 绕过限制 |
+| Bypass_String    | by_hex_encode   | `"macr0phag3"` | `"\x6d\x61\x63\x72\x30\x70\x68\x61\x67\x33"`  | hex 编码绕过限制 |
+| Bypass_String    | by_unicode_encode   | `"macr0phag3"` | `"\u006d\u0061\u0063\u0072\u0030\u0070\u0068\u0061\u0067\u0033"`  | unicode 编码绕过限制 |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |

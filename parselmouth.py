@@ -40,7 +40,7 @@ def check(payload, ignore_space=False):
 
     if not BLACK_CHAR.get("kwd") and not BLACK_CHAR.get("re_kwd"):
         # 无规则？提示一下
-        sys.exit(put_color(f"[WARN] 规则为空，不需要 bypass"), *args)
+        sys.exit(put_color(f"[WARN] 规则为空，不需要 bypass", "yellow"))
 
     kwd_check = [
         i
@@ -68,8 +68,7 @@ class P9H(ast._Unparser):
         ensure_min=False,
         specify_bypass_map={},
     ):
-        _space = [i for i in [" ", "\t"] if not check(i)]
-        globals()["FORMAT_SPACE"] = ([""] + _space)[bool(_space)]
+        globals()["FORMAT_SPACE"] = ""
         self.source_code = source_code
         # print("source_code", depth, source_code)
         self.source_node = (
@@ -117,11 +116,9 @@ class P9H(ast._Unparser):
         else:
             self.write(repr(value))
 
-    def _write_str_avoiding_backslashes(
-        self, string, *, quote_types=ast._ALL_QUOTES, _write=True
-    ):
+    def _write_str_avoiding_backslashes(self, string, *, _write=True):
         """Write string literal value with a best effort attempt to avoid backslashes."""
-        quote_types = [i for i in quote_types if not check(i)]
+        quote_types = [i for i in ["'", '"'] if not check(i)]  # 这里直接舍弃 ''' 和 """
         string, quote_types = self._str_literal_helper(string, quote_types=quote_types)
         quote_type = quote_types[0]
         result = f"{quote_type}{string}{quote_type}"
@@ -333,7 +330,6 @@ class P9H(ast._Unparser):
             int: bypass_tools.Bypass_Int,
             str: bypass_tools.Bypass_String,
         }
-
         bypass_cls_map = value_map.get(
             type(node.value), value_map.get(node.value, None)
         )
