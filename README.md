@@ -95,8 +95,9 @@ print(status, c_result, result)
 
 以及不论通过或没通过这个工具解开题目，都欢迎提交 issue 帮忙补充案例，多谢~
 
-## 3. 已知的手法待实现
+## 3. TODO
 
+- [x] 支持通过参数 `--re-rule` 来指定正则表达式格式的黑名单规则
 - [ ] 支持 payload 字符集合大小限制
 - [ ] `exec`、`eval` + `open` 执行库代码
 - [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`

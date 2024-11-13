@@ -284,8 +284,8 @@ class Bypass_Int(_Bypass):
             str(i) for i in range(10) if not p9h.check(i, ignore_space=True)
         }
         _valid_num = self.valid_num[:]
-        # print(_valid_num)
         valid_num_map = dict(zip(map(int, map(eval, _valid_num)), _valid_num))
+        # print(_valid_num, valid_num_map)
         can_not_cal = []
         try:
             result = _calculate(target, "")
@@ -391,6 +391,19 @@ class Bypass_String(_Bypass):
         return self.P9H(exp).visit()
 
     @recursion_protect
+    def by_hex_encode(self):
+        if all(ord(i) in range(256) for i in self.node._value):
+            r = "".join("\\x{:02x}".format(ord(c)) for c in self.node._value)
+            return f"'{r}'"
+        else:
+            return repr(self.node._value)
+
+    @recursion_protect
+    def by_unicode_encode(self):
+        r = "".join("\\u{:04x}".format(ord(c)) for c in self.node._value)
+        return f"'{r}'"
+
+    @recursion_protect
     def by_format(self):
         # 避免无限递归
         _s = [i for i in get_stack() if i[1].startswith("by_")][1:]
@@ -426,7 +439,7 @@ class Bypass_String(_Bypass):
     @recursion_protect
     def by_bytes_single(self):
         byte_list = [ord(i) for i in self.node._value]
-        if all([i in range(0, 256) for i in byte_list]):
+        if all([i in range(256) for i in byte_list]):
             return self._join([f"str(bytes([{i}]))[2]" for i in byte_list])
         else:
             return repr(self.node._value)

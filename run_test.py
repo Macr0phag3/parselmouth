@@ -33,116 +33,165 @@ simple_testcases = {
     "Bypass_Int": {
         "1": [
             {
-                "rule": ["1"],
+                "rule": {"kwd": ["1"], "re_kwd": "1"},
                 "bypass_func": ["by_trans", "by_cal", "by_unicode"],
             },
             {
-                "rule": ["1", "True", "all"],
+                "rule": {"kwd": ["1", "True", "all"], "re_kwd": "1|all|True"},
                 "bypass_func": ["by_trans", "by_cal", "by_unicode"],
             },
             {
-                "rule": ["1", "True", "all", "(", "*", "+"],
+                "rule": {
+                    "kwd": ["1", "True", "all", "(", "*", "+"],
+                    "re_kwd": "1|True|all|\(|\*|\+",
+                },
                 "bypass_func": ["by_trans", "by_cal"],
             },
             {
-                "rule": ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "("],
+                "rule": {
+                    "kwd": [
+                        "0",
+                        "1",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "True",
+                        "False",
+                        "(",
+                    ],
+                    "re_kwd": "[0|0|3-8]|True|False|\(",
+                },
                 "bypass_func": ["by_cal"],
             },
             {
-                "rule": [
-                    "0",
-                    "1",
-                    "3",
-                    "4",
-                    "5",
-                    "6",
-                    "7",
-                    "8",
-                    "True",
-                    "False",
-                    "*",
-                    "+",
-                ],
+                "rule": {
+                    "kwd": [
+                        "0",
+                        "1",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "True",
+                        "False",
+                        "*",
+                        "+",
+                    ],
+                    "re_kwd": "[0|1|3-8]|True|False|\*|\+",
+                },
                 "bypass_func": ["by_cal"],
             },
         ],
         "2": [
             {
-                "rule": ["2"],
+                "rule": {"kwd": ["2"], "re_kwd": "2"},
                 "bypass_func": ["by_bin", "by_trans", "by_cal", "by_unicode"],
             },
             {
-                "rule": ["2", "True"],
+                "rule": {"kwd": ["2", "True"], "re_kwd": "2|True"},
                 "bypass_func": ["by_bin", "by_trans", "by_cal", "by_unicode"],
             },
         ],
         "12": [
             {
-                "rule": ["12"],
+                "rule": {"kwd": ["12"], "re_kwd": "12"},
                 "bypass_func": ["by_bin", "by_hex", "by_ord", "by_cal", "by_unicode"],
             },
             {
-                "rule": ["12", "True"],
+                "rule": {"kwd": ["12", "True"], "re_kwd": "12|True"},
                 "bypass_func": ["by_bin", "by_hex", "by_ord", "by_cal", "by_unicode"],
             },
         ],
         "1000": [
             {
-                "rule": [
-                    "0",
-                    "1",
-                    "2",
-                    "3",
-                    "4",
-                    "5",
-                    "6",
-                    "7",
-                    "9",
-                    "-",
-                    "*",
-                    "True",
-                    "False",
-                ],
+                "rule": {
+                    "kwd": [
+                        "0",
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "9",
+                        "-",
+                        "*",
+                        "True",
+                        "False",
+                    ],
+                    "re_kwd": "[0-6|7|9|\-|\*]|True|False",
+                },
                 "bypass_func": ["by_cal", "by_ord"],
             }
         ],
         "2024": [
             {
-                "rule": ["2", "4"],
+                "rule": {"kwd": ["2", "4"], "re_kwd": "2|4"},
                 "bypass_func": ["by_bin", "by_hex", "by_ord", "by_cal", "by_unicode"],
             },
             {
-                "rule": ["1", "2", "4", "*"],
+                "rule": {"kwd": ["1", "2", "4", "*"], "re_kwd": "1|2|4|\*"},
                 "bypass_func": ["by_hex", "by_cal", "by_ord", "by_unicode"],
             },
         ],
         "-1": [
-            {"rule": ["1"], "bypass_func": ["by_cal", "by_unicode"]},
             {
-                "rule": ["0", "1", "3", "4", "5", "6", "7", "8"],
+                "rule": {"kwd": ["1"], "re_kwd": "1"},
+                "bypass_func": ["by_cal", "by_unicode"],
+            },
+            {
+                "rule": {
+                    "kwd": ["0", "1", "3", "4", "5", "6", "7", "8"],
+                    "re_kwd": "[0|1|3-8]",
+                },
                 "bypass_func": ["by_cal"],
             },
             {
-                "rule": ["0", "1", "3", "4", "5", "6", "7", "8", "*", "+"],
+                "rule": {
+                    "kwd": ["0", "1", "3", "4", "5", "6", "7", "8", "*", "+"],
+                    "re_kwd": "[0|1|3-8|\*|\+]",
+                },
                 "bypass_func": ["by_cal"],
             },
             {
-                "rule": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "+"],
+                "rule": {
+                    "kwd": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "+"],
+                    "re_kwd": "[0-9|\*|\+]",
+                },
                 "bypass_func": ["by_cal"],
             },
             {
-                "rule": ["1", "~", "True", "all", "len", "*"],
+                "rule": {
+                    "kwd": ["1", "~", "True", "all", "len", "*"],
+                    "re_kwd": "1|~|True|all|len|\*",
+                },
                 "bypass_func": [],
             },
         ],
         "-2024": [
-            {"rule": ["2", "4"], "bypass_func": ["by_cal", "by_unicode"]},
             {
-                "rule": ["0", "1", "3", "4", "5", "6", "7", "8"],
+                "rule": {"kwd": ["2", "4"], "re_kwd": "2|4"},
+                "bypass_func": ["by_cal", "by_unicode"],
+            },
+            {
+                "rule": {
+                    "kwd": ["0", "1", "3", "4", "5", "6", "7", "8"],
+                    "re_kwd": "0|1|[3-8]",
+                },
                 "bypass_func": ["by_cal"],
             },
             {
-                "rule": ["0", "1", "2", "3", "4", "5", "6", "7", "8", " "],
+                "rule": {
+                    "kwd": ["0", "1", "2", "3", "4", "5", "6", "7", "8", " "],
+                    "re_kwd": "[0-8| ]",
+                    # "re_kwd": "",
+                },
                 "bypass_func": ["by_cal"],
             },
         ],
@@ -150,7 +199,7 @@ simple_testcases = {
     "Bypass_String": {
         "'macr0phag3'": [
             {
-                "rule": ["macr0phag3"],
+                "rule": {"kwd": ["macr0phag3"], "re_kwd": "macr0phag3"},
                 "bypass_func": [
                     "by_char",
                     "by_reverse",
@@ -158,66 +207,119 @@ simple_testcases = {
                     "by_bytes_single",
                     "by_bytes_full",
                     "by_join_map_str",
+                    "by_unicode_encode",
+                    "by_hex_encode",
                 ],
             },
             {
-                "rule": ["macr0phag3", "+"],
-                "bypass_func": ["by_char", "by_bytes_single", "by_format"],
+                "rule": {"kwd": ["macr0phag3", "+"], "re_kwd": "macr0phag3|\+"},
+                "bypass_func": [
+                    "by_char",
+                    "by_bytes_single",
+                    "by_format",
+                    "by_unicode_encode",
+                    "by_hex_encode",
+                ],
             },
-            {"rule": ["'"], "bypass_func": ["*"]},
-            {"rule": ['"'], "bypass_func": ["*"]},
-            {"rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0"], "bypass_func": []},
+            {"rule": {"kwd": ["'"], "re_kwd": "'"}, "bypass_func": ["*"]},
+            {"rule": {"kwd": ['"'], "re_kwd": '"'}, "bypass_func": ["*"]},
             {
-                "rule": ["'", '"', "chr", "bytes", "1", "b", "x", "0", "+", " "],
+                "rule": {
+                    "kwd": ["'", '"', "chr", "bytes", "1", "b", "x", "0"],
+                    "re_kwd": "'|\"|chr|bytes|1|b|x|0",
+                },
+                "bypass_func": [],
+            },
+            {
+                "rule": {
+                    "kwd": ["'", '"', "chr", "bytes", "1", "b", "x", "0", "+", " "],
+                    "re_kwd": "'|\"|chr|bytes|1|b|x|0|\+| ",
+                },
                 "bypass_func": [],
             },
         ],
         "'你好世界'": [
-            {"rule": ["'", '"'], "bypass_func": ["by_char", "by_dict"]},
-            {"rule": ["你"], "bypass_func": ["by_join_map_str"]},
+            {
+                "rule": {"kwd": ["'", '"'], "re_kwd": "'|\""},
+                "bypass_func": ["by_char", "by_dict"],
+            },
+            {
+                "rule": {"kwd": ["你"], "re_kwd": "你"},
+                "bypass_func": ["by_join_map_str", "by_unicode_encode"],
+            },
         ],
     },
     "Bypass_Attribute": {
         "str.find": [
-            {"rule": [" ", "."], "bypass_func": ["*"]},
-            {"rule": ["find"], "bypass_func": ["*"]},
-            {"rule": ["find", "chr", "ᶜ"], "bypass_func": ["*"]},
-            {"rule": ["find", "chr", "ᶜ", ":"], "bypass_func": ["*"]},
+            {"rule": {"kwd": [" ", "."], "re_kwd": " |\."}, "bypass_func": ["*"]},
+            {"rule": {"kwd": ["find"], "re_kwd": "find"}, "bypass_func": ["*"]},
             {
-                "rule": [" ", "\t", "find", "chr", "ᶜ", ":", "0", "1"],
+                "rule": {"kwd": ["find", "chr", "ᶜ"], "re_kwd": "find|chr|ᶜ"},
+                "bypass_func": ["*"],
+            },
+            {
+                "rule": {"kwd": ["find", "chr", "ᶜ", ":"], "re_kwd": "find|chr|ᶜ|:"},
+                "bypass_func": ["*"],
+            },
+            {
+                "rule": {
+                    "kwd": [" ", "\t", "find", "chr", "ᶜ", ":", "0", "1"],
+                    "re_kwd": " |\t|find|chr|ᶜ|:|0|1",
+                },
                 "bypass_func": ["*"],
             },
         ],
     },
     "Bypass_Name": {
         "__import__": [
-            {"rule": ["__"], "bypass_func": ["*"]},
-            {"rule": ["import"], "bypass_func": ["*"]},
-            {"rule": ["imp", "rt"], "bypass_func": ["*"]},
+            {"rule": {"kwd": ["__"], "re_kwd": "__"}, "bypass_func": ["*"]},
+            {"rule": {"kwd": ["import"], "re_kwd": "import"}, "bypass_func": ["*"]},
+            {"rule": {"kwd": ["imp", "rt"], "re_kwd": "imp|rt"}, "bypass_func": ["*"]},
         ],
     },
     "Integrated": {
         "__import__('os').popen('whoami').read()": [
-            {"rule": ["read", "'", '"'], "bypass_func": []},
-            {"rule": [".", "read", "popen"], "bypass_func": []},
-            {"rule": ["__", ".", "'", '"', "read", "chr", "ᶜ"], "bypass_func": []},
-            {"rule": ["__", ".", "'", '"', "read", "chr", "ᶜ", "="], "bypass_func": []},
             {
-                "rule": [
-                    "__",
-                    ".",
-                    "'",
-                    '"',
-                    "read",
-                    "chr",
-                    "ᶜ",
-                    "=",
-                    ":",
-                    "0",
-                    "1",
-                    " ",
-                    "\t",
-                ],
+                "rule": {"kwd": ["read", "'", '"'], "re_kwd": "read|'|\""},
+                "bypass_func": [],
+            },
+            {
+                "rule": {"kwd": [".", "read", "popen"], "re_kwd": "\.|read|popen"},
+                "bypass_func": [],
+            },
+            {
+                "rule": {
+                    "kwd": ["__", ".", "'", '"', "read", "chr", "ᶜ"],
+                    "re_kwd": "__|\.|'|\"|read|chr|ᶜ",
+                },
+                "bypass_func": [],
+            },
+            {
+                "rule": {
+                    "kwd": ["__", ".", "'", '"', "read", "chr", "ᶜ", "="],
+                    "re_kwd": "__|\.|'|\"|read|chr|ᶜ|=",
+                },
+                "bypass_func": [],
+            },
+            {
+                "rule": {
+                    "kwd": [
+                        "__",
+                        ".",
+                        "'",
+                        '"',
+                        "read",
+                        "chr",
+                        "ᶜ",
+                        "=",
+                        ":",
+                        "0",
+                        "1",
+                        " ",
+                        "\t",
+                    ],
+                    "re_kwd": "__|\.|'|\"|read|chr|ᶜ|=|:|0|1| |\t",
+                },
                 "bypass_func": [],
             },
         ],

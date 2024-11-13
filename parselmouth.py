@@ -1,5 +1,6 @@
 import ast
 import json
+import re
 import sys
 import argparse
 
@@ -38,12 +39,20 @@ def check(payload, ignore_space=False):
         payload = ast.unparse(payload)
 
     # self.cprint(f"检查是否命中黑名单: {payload}", level="debug")
-    return [
+    kwd_check = [
         i
-        for i in BLACK_CHAR
+        for i in BLACK_CHAR["kwd"]
         if (not ignore_space or (ignore_space and i not in [" ", "\t"]))
         and i in str(payload)
-    ]
+    ] + list(
+        set(
+            re.findall(BLACK_CHAR["re_kwd"], str(payload))
+            if BLACK_CHAR["re_kwd"]
+            else []
+        )
+        - ({" ", "\t"} if ignore_space else set())
+    )
+    return kwd_check
 
 
 class P9H(ast._Unparser):
@@ -431,7 +440,7 @@ class P9H(ast._Unparser):
 
 Recursion_LIMIT = 5000
 sys.setrecursionlimit(Recursion_LIMIT)
-BLACK_CHAR = []
+BLACK_CHAR = {}
 FORMAT_SPACE = None
 
 if __name__ == "__main__":
@@ -453,6 +462,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--payload", help="bypass rule")
     parser.add_argument("-v", action="count", default=0, help="verbose level")
+    parser.add_argument("--re-rule", default="", help="rule in regex")
     parser.add_argument("--rule", nargs="+", default="", help="rules")
     parser.add_argument(
         "--specify-bypass",
@@ -468,7 +478,13 @@ if __name__ == "__main__":
     specify_bypass_map = json.loads(args.specify_bypass)
     print(f"  [*] specify bypass map: {specify_bypass_map}")
     print(f"  [*] versbose: {put_color(args.v, 'white')}")
-    BLACK_CHAR = args.rule
+
+    try:
+        re.compile(args.re_rule)
+    except Exception:
+        sys.exit("[!] --re-rule 的正则表达式有误")
+
+    BLACK_CHAR = {"kwd": args.rule, "re_kwd": args.re_rule}
     p9h = P9H(
         args.payload,
         versbose=args.v,
