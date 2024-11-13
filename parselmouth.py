@@ -47,7 +47,7 @@ def check(payload, ignore_space=False):
     ] + list(
         set(
             re.findall(BLACK_CHAR["re_kwd"], str(payload))
-            if BLACK_CHAR["re_kwd"]
+            if BLACK_CHAR.get("re_kwd")
             else []
         )
         - ({" ", "\t"} if ignore_space else set())
