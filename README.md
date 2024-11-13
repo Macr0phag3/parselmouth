@@ -24,6 +24,7 @@ import parselmouth as p9h
 
 
 p9h.BLACK_CHAR = {"kwd": [".", "'", '"', "chr", "dict"]}
+# p9h.BLACK_CHAR = {"re_kwd": "\.|'|\"|chr|dict"}  # 或者这样
 runner = p9h.P9H(
     "__import__('os').popen('whoami').read()",
     specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}}, 

@@ -38,10 +38,13 @@ def check(payload, ignore_space=False):
     if isinstance(payload, ast.AST):
         payload = ast.unparse(payload)
 
-    # self.cprint(f"检查是否命中黑名单: {payload}", level="debug")
+    if not BLACK_CHAR.get("kwd") and not BLACK_CHAR.get("re_kwd"):
+        # 无规则？提示一下
+        sys.exit(put_color(f"[WARN] 规则为空，不需要 bypass"), *args)
+
     kwd_check = [
         i
-        for i in BLACK_CHAR["kwd"]
+        for i in BLACK_CHAR.get("kwd", [])
         if (not ignore_space or (ignore_space and i not in [" ", "\t"]))
         and i in str(payload)
     ] + list(
