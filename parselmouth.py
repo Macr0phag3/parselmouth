@@ -251,23 +251,19 @@ class P9H(ast._Unparser):
                     min_exp = result
                     break
 
-                # print("succ", result)
-                # break
-
         if min_exp == "1" * (10**5):
             # 说明未成功
             self.cprint(
                 put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
             )
             self.bypass_history["failed"].append(raw_code)
-            # print(f"结束，回退, {raw_code}")
+            
             result = raw_code
         else:
             result = min_exp
             self.bypass_history["success"][raw_code] = result
 
         self._source += [result]
-        # print("当前 payload:", self._source)
         return result
 
     def write(self, *text):
@@ -435,6 +431,38 @@ class P9H(ast._Unparser):
                 self.write(" ")
             self.set_precedence(operator_precedence, node.operand)
             self.traverse(node.operand)
+
+    def visit_BoolOp(self, node):
+        def _by_raw():
+            self.write("(")
+            self.set_precedence(ast._Precedence.OR if isinstance(node.op, ast.Or) else ast._Precedence.AND, node)
+            for i, value in enumerate(node.values):
+                if i > 0:
+                    self.write(f" {self.boolops[node.op.__class__.__name__]} ")
+                self.traverse(value)
+            self.write(")")
+            
+        return self.try_bypass(
+            dict(
+                bypass_tools.Bypass_BoolOp(BLACK_CHAR, node, p9h_self=self).get_map(),
+                **{"by_raw": _by_raw},
+            )
+        )
+        
+    def visit_ListComp(self, node):
+        def _by_raw():
+            self.write("[")
+            self.traverse(node.elt)
+            for gen in node.generators:
+                self.traverse(gen)
+            self.write("]")
+            
+        return self.try_bypass(
+            dict(
+                bypass_tools.Bypass_ListComp(BLACK_CHAR, node, p9h_self=self).get_map(),
+                **{"by_raw": _by_raw},
+            )
+        )
 
 
 Recursion_LIMIT = 5000
