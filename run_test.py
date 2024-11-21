@@ -21,6 +21,9 @@ def bypass(payload, name, specify_bypass_map):
     total += 1
     if not bypassed:
         failed += 1
+        print(f"[DEBUG] Failed case: {payload}, Bypass result: {bypass_result}")
+    else:
+        print(f"[DEBUG] Successful bypass: {payload}, Bypass result: {bypass_result}")
 
     print(
         f"    - [{round(et-st, 2):.2f}s] {p9h.put_color(['FAIL', 'SUCC'][bypassed], 'green' if bypassed else 'red')} "
@@ -30,6 +33,17 @@ def bypass(payload, name, specify_bypass_map):
 
 
 simple_testcases = {
+    "Bypass_Name": {
+        "__import__": [
+            
+            {"rule": {"kwd": ["import"], "re_kwd": "import"}, "bypass_func": ["*"]},
+            {"rule": {"kwd": ["imp", "rt"], "re_kwd": "imp|rt"}, "bypass_func": ["*"]},
+            {
+                "rule": {"kwd": ["__import__"], "re_kwd": "__import__"},
+                "bypass_func": ["by_getattr", "by_dict"],
+            },
+        ],
+    },
     "Bypass_Int": {
         "1": [
             {
@@ -247,6 +261,24 @@ simple_testcases = {
                 "bypass_func": ["by_join_map_str", "by_unicode_encode"],
             },
         ],
+        "'os'": [
+            {
+                "rule": {"kwd": ["os"], "re_kwd": "os"},
+                "bypass_func": ["by_str_add", "by_chr_format"],
+            }
+        ],
+        "'__builtins__'": [
+            {
+                "rule": {"kwd": ["__builtins__"], "re_kwd": "__builtins__"},
+                "bypass_func": ["by_chr_format", "by_str_add"],
+            }
+        ],
+        '"0123456789"': [
+            {
+                "rule": {"kwd": ["0123456789"], "re_kwd": "0123456789"},
+                "bypass_func": ["by_sorted_set_hash"],
+            }
+        ],
     },
     "Bypass_Attribute": {
         "str.find": [
@@ -267,13 +299,6 @@ simple_testcases = {
                 },
                 "bypass_func": ["*"],
             },
-        ],
-    },
-    "Bypass_Name": {
-        "__import__": [
-            {"rule": {"kwd": ["__"], "re_kwd": "__"}, "bypass_func": ["*"]},
-            {"rule": {"kwd": ["import"], "re_kwd": "import"}, "bypass_func": ["*"]},
-            {"rule": {"kwd": ["imp", "rt"], "re_kwd": "imp|rt"}, "bypass_func": ["*"]},
         ],
     },
     "Integrated": {
@@ -320,6 +345,20 @@ simple_testcases = {
                     "re_kwd": "__|\.|'|\"|read|chr|ᶜ|=|:|0|1| |\t",
                 },
                 "bypass_func": [],
+            },
+        ],
+    },
+    "Bypass_BoolOp": {
+        "True or False": [
+            {
+                "rule": {"kwd": ["or"], "re_kwd": "or"},
+                "bypass_func": ["by_bitwise", "by_arithmetic"],
+            },
+        ],
+        "True and False": [
+            {
+                "rule": {"kwd": ["and"], "re_kwd": "and"},
+                "bypass_func": ["by_bitwise", "by_arithmetic"], 
             },
         ],
     },
