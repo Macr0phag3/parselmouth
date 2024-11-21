@@ -298,6 +298,7 @@ class Bypass_Int(_Bypass):
             try:
                 _result = str(sympy.simplify(result)).replace("x", "")
             except Exception as e:
+                print(f"[DEBUG] sympy simplify error: {e}")
                 pass
             else:
                 if not p9h.check(_result, ignore_space=True):
@@ -306,6 +307,7 @@ class Bypass_Int(_Bypass):
             return self.P9H(result.replace("x", "")).visit()
 
         else:
+            print(f"[DEBUG] Calculation failed for target: {target}")
             return str(self.node._value)
 
     @recursion_protect
@@ -354,9 +356,14 @@ class Bypass_String(_Bypass):
 
     @recursion_protect
     def by_join_map_str(self):
-        return self.P9H(
-            f"''.join(map(chr, {[ord(i) for i in self.node._value]}))"
-        ).visit()
+        """实现字符串拼接: "macr0phag3" -> "str().join(map(chr, [109, 97, 99, 114, 48, 112, 104, 97, 103, 51]))" """
+        char_list = [ord(c) for c in self.node._value]
+        result = f"str().join(map(chr, {char_list}))"
+        
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+            
+        return repr(self.node._value)
 
     @recursion_protect
     def by_dict(self):
@@ -388,6 +395,7 @@ class Bypass_String(_Bypass):
             if not p9h.check(exp):
                 return self.P9H(exp).visit()
 
+        
         return self.P9H(exp).visit()
 
     @recursion_protect
@@ -428,7 +436,7 @@ class Bypass_String(_Bypass):
         ]
         if len(s) > 1 and s[0][:2] == s[1][:2] and s[0][2] == s[1][2][::-1]:
             # 放弃 bypass
-            # 避免出现 "123" -> "123"[::-1][::-1] 的现象
+            # 避免出现 "123" -> "123"[::-1][::-1] 的现��
             return repr(self.node._value)
 
         result = self.P9H(
@@ -452,6 +460,49 @@ class Bypass_String(_Bypass):
                 f"bytes({str(byte_list)}).decode()",
             ).visit()
 
+        return repr(self.node._value)
+
+    @recursion_protect  
+    def by_str_add(self):
+        """实现字符串拼接: "os" -> "o" + "s" """
+        if len(self.node._value) <= 1:
+            return repr(self.node._value)
+            
+        splits = []
+        for i in range(len(self.node._value)-1):
+            left = self.node._value[:i+1]
+            right = self.node._value[i+1:]
+            splits.append((left, right))
+            
+        for left, right in splits:
+            result = self._join([repr(left), repr(right)])
+            if not p9h.check(result):
+                return result
+                
+        return repr(self.node._value)
+
+    @recursion_protect
+    def by_chr_format(self):
+        """实现格式化: '__builtins__' -> '%c%c%c%c%c%c%c%c%c%c%c%c' % (95,95,98,117,105,108,116,105,110,115,95,95)"""
+        if not all(ord(c) < 256 for c in self.node._value):
+            return repr(self.node._value)
+            
+        format_str = '%c' * len(self.node._value)
+        ord_list = [str(ord(c)) for c in self.node._value]
+        result = f"'{format_str}' % ({','.join(ord_list)})"
+        
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+            
+        return repr(self.node._value)
+
+    @recursion_protect
+    def by_sorted_set_hash(self):
+        """实现字符串绕过: "0123456789" -> sorted(set(str(hash(()))))"""
+        if self.node._value == "0123456789":
+            result = "''.join(sorted(set(str(hash(())))))"
+            if not p9h.check(result):
+                return self.P9H(result).visit()
         return repr(self.node._value)
 
 
@@ -489,6 +540,135 @@ class Bypass_Name(_Bypass):
         # print(_result)
         return _result
 
+    @recursion_protect
+    def by_getattr(self):
+        """实现 __import__ -> getattr(__builtins__, "__import__")"""
+        if not self.node._value.startswith('__'):
+            return self.node._value
+            
+        # 1. 先尝试完整字符串
+        name = repr(self.node._value)
+        if not p9h.check(name):
+            result = f'getattr(__builtins__, {name})'
+            if not p9h.check(result):
+                return self.P9H(result).visit()
+        
+        # 2. 尝试格式化字符串
+        char_codes = [str(ord(c)) for c in self.node._value]
+        format_str = '%c' * len(self.node._value)
+        result = f'getattr(__builtins__, \'{format_str}\' % ({",".join(char_codes)}))'
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+                
+        # 3. 尝试字符串拼接
+        splits = []
+        value = self.node._value
+        # 3.1 常规双段分割 
+        for i in range(1, len(value)):
+            left = value[:i]
+            right = value[i:]
+            splits.append((left, right))
+            
+        # 3.2 三段分割
+        for i in range(1, len(value)-1):
+            for j in range(i+1, len(value)):
+                splits.append((left, value[i:j], value[j:]))
+                
+        # 3.3 多段分割
+        if len(value) > 3:
+            for i in range(1, len(value)-2):
+                for j in range(i+1, len(value)-1):
+                    for k in range(j+1, len(value)):
+                        splits.append((value[:i], value[i:j], value[j:k], value[k:]))
+                    
+        for split in splits:
+            if len(split) == 2:
+                result = f'getattr(__builtins__, {repr(split[0])}+{repr(split[1])})'
+            elif len(split) == 3:
+                result = f'getattr(__builtins__, {repr(split[0])}+{repr(split[1])}+{repr(split[2])})'
+            else:  # 四段式
+                result = f'getattr(__builtins__, {repr(split[0])}+{repr(split[1])}+{repr(split[2])}+{repr(split[3])})'
+                
+            if not p9h.check(result):
+                return self.P9H(result).visit()
+                
+        # 4. 尝试字符拼接
+        chars = [f'chr({ord(c)})' for c in self.node._value]
+        result = f'getattr(__builtins__, str().join([{",".join(chars)}]))'
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+                
+        # 5. 尝试使用 % 运算符
+        result = f'getattr(__builtins__, "%s" % {repr(self.node._value)})'
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+                
+        return self.node._value
+        
+    @recursion_protect 
+    def by_dict(self):
+        """实现 __import__ -> __builtins__.__dict__['__import__']"""
+        # 使用与 by_getattr 相同的策略,只是改变最终的表达式
+        if not self.node._value.startswith('__'):
+            return self.node._value
+            
+        # 1. 完整字符串
+        name = repr(self.node._value)
+        result = f'__builtins__.__dict__[{name}]'
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+            
+        # 2. 格式化字符串
+        char_codes = [str(ord(c)) for c in self.node._value]
+        format_str = '%c' * len(self.node._value)
+        result = f'__builtins__.__dict__[\'{format_str}\' % ({",".join(char_codes)})]'
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+            
+        # 3. 字符串拼接(同样复用split逻辑)
+        splits = []
+        value = self.node._value
+        for i in range(1, len(value)):
+            left = value[:i]
+            right = value[i:]
+            splits.append((left, right))
+            
+        for i in range(1, len(value)-1):
+            for j in range(i+1, len(value)):
+                splits.append((value[:i], value[i:j], value[j:]))
+                
+        if len(value) > 3:
+            for i in range(1, len(value)-2):
+                for j in range(i+1, len(value)-1):
+                    for k in range(j+1, len(value)):
+                        splits.append((value[:i], value[i:j], value[j:k], value[k:]))
+                    
+        for split in splits:
+            expr = None
+            if len(split) == 2:
+                expr = f'{repr(split[0])}+{repr(split[1])}'
+            elif len(split) == 3:
+                expr = f'{repr(split[0])}+{repr(split[1])}+{repr(split[2])}'
+            else:
+                expr = f'{repr(split[0])}+{repr(split[1])}+{repr(split[2])}+{repr(split[3])}'
+                
+            result = f'__builtins__.__dict__[{expr}]'
+            if not p9h.check(result):
+                return self.P9H(result).visit()
+                
+        # 4. 字符拼接 
+        chars = [f'chr({ord(c)})' for c in self.node._value]
+        result = f'__builtins__.__dict__[str().join([{",".join(chars)}])]'
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+                
+        # 5. 尝试使用 % 运算符
+        result = f'__builtins__.__dict__["%s" % {repr(self.node._value)}]'
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+                
+        return self.node._value
+
 
 class Bypass_Attribute(_Bypass):
     def __init__(self, *args, **kwargs):
@@ -522,3 +702,70 @@ class Bypass_Keyword(_Bypass):
             result += self.P9H(arg).visit() + "="
 
         return result + self.P9H(value).visit()
+
+class Bypass_BoolOp(_Bypass):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 存储布尔运算的左右操作数和操作符
+        self.node._value = (
+            getattr(self.node, "op").__class__.__name__,
+            getattr(self.node, "values")
+        )
+
+    @recursion_protect
+    def by_bitwise(self):
+        """使用位运算符替代 and/or: True or False -> True | False"""
+        op, values = self.node._value
+        if len(values) != 2:
+            return None
+            
+        op_map = {
+            'Or': '|',
+            'And': '&'
+        }
+        if op not in op_map:
+            return None
+            
+        result = f'({self.P9H(values[0]).visit()}) {op_map[op]} ({self.P9H(values[1]).visit()})'
+        if not p9h.check(result):
+            return self.P9H(result).visit()
+        return None
+        
+    @recursion_protect 
+    def by_arithmetic(self):
+        """使用算术运算替代 and/or:
+        True or False -> bool(-(True)-(False))
+        True or False -> bool((True)+(False))
+        True and False -> bool((True)*(False))
+        """
+        op, values = self.node._value
+        if len(values) != 2:
+            return None
+            
+        ops = []
+        if (op == 'Or'):
+            # or 可以用 bool(-(a)-(b)) 或 bool(a+b)
+            if not p9h.check('-'):
+                ops.append(f'bool(-({self.P9H(values[0]).visit()})-({self.P9H(values[1]).visit()}))')
+            if not p9h.check('+'):
+                ops.append(f'bool(({self.P9H(values[0]).visit()})+({self.P9H(values[1]).visit()}))')
+                
+        elif (op == 'And'):
+            # and 可以用 bool(a*b)
+            if not p9h.check('*'):
+                ops.append(f'bool(({self.P9H(values[0]).visit()})*({self.P9H(values[1]).visit()}))')
+                
+        for result in ops:
+            if not p9h.check(result):
+                return self.P9H(result).visit()
+        return None
+
+class Bypass_ListComp(_Bypass):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.node._value = (
+            getattr(self.node, "elt"),
+            getattr(self.node, "generators")
+        )
+        
+    # 删除 by_nested_comp 方法
