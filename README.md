@@ -80,10 +80,13 @@ print(status, c_result, result)
 | Bypass_String    | by_format   | `"macr0phag3"` | `'{}{}{}{}{}{}{}{}{}{}'.format(chr(109), chr(97), chr(99), chr(114), chr(48), chr(112), chr(104), chr(97), chr(103), chr(51))`  | format 绕过限制 |
 | Bypass_String    | by_hex_encode   | `"macr0phag3"` | `"\x6d\x61\x63\x72\x30\x70\x68\x61\x67\x33"`  | hex 编码绕过限制 |
 | Bypass_String    | by_unicode_encode   | `"macr0phag3"` | `"\u006d\u0061\u0063\u0072\u0030\u0070\u0068\u0061\u0067\u0033"`  | unicode 编码绕过限制 |
+| Bypass_String    | by_char_format   | `"macr0phag3"` | `"%c%c%c%c%c%c%c%c%c%c%c%c" % (95,95,98,117,105,108,116,105,110,115,95,95)`  | %c format 编码绕过限制 |
+| Bypass_String    | by_char_add   | `"macr0phag3"` | `'m'+'a'+'c'+'r'+'0'+'p'+'h'+'a'+'g'+'3'`  | 字符加法运算绕过限制 |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Name    | by_unicode   | `__import__` | `_＿import_＿` | unicode 绕过|
+| Bypass_Name    | by_builtins   | `__import__` | `getattr(__builtins__, "__import__")` | 从 builtins 获取 name |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
@@ -107,10 +110,10 @@ print(status, c_result, result)
 - [ ] `exec`、`eval` + `open` 执行库代码
 - [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`
 - [x] `'__builtins__'` -> `'\u005f\u005f\u0062\u0075\u0069\u006c\u0074\u0069\u006e\u0073\u005f\u005f'`
-- [ ] `"os"` -> `"o" + "s"`
+- [x] `"os"` -> `"o" + "s"`
 - [ ] `'__buil''tins__'` -> `str.__add__('__buil', 'tins__')`
-- [ ] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)`
-- [ ] `__import__` -> `getattr(__builtins__, "__import__")`
+- [x] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)` [@chi111i](https://github.com/chi111i)
+- [x] `__import__` -> `getattr(__builtins__, "__import__")`
 - [ ] `__import__` -> `__builtins__.__dict__['__import__']`
 - [ ] `__import__` -> `__loader__().load_module`
 - [ ] `str.find` -> `vars(str)["find"]`

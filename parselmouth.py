@@ -257,7 +257,7 @@ class P9H(ast._Unparser):
                 put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
             )
             self.bypass_history["failed"].append(raw_code)
-            
+
             result = raw_code
         else:
             result = min_exp
@@ -432,23 +432,33 @@ class P9H(ast._Unparser):
             self.set_precedence(operator_precedence, node.operand)
             self.traverse(node.operand)
 
+    # def visit_BinOp(self, node):
+    #     pass
+
     def visit_BoolOp(self, node):
         def _by_raw():
             self.write("(")
-            self.set_precedence(ast._Precedence.OR if isinstance(node.op, ast.Or) else ast._Precedence.AND, node)
+            self.set_precedence(
+                (
+                    ast._Precedence.OR
+                    if isinstance(node.op, ast.Or)
+                    else ast._Precedence.AND
+                ),
+                node,
+            )
             for i, value in enumerate(node.values):
                 if i > 0:
                     self.write(f" {self.boolops[node.op.__class__.__name__]} ")
                 self.traverse(value)
             self.write(")")
-            
+
         return self.try_bypass(
             dict(
                 bypass_tools.Bypass_BoolOp(BLACK_CHAR, node, p9h_self=self).get_map(),
                 **{"by_raw": _by_raw},
             )
         )
-        
+
     def visit_ListComp(self, node):
         def _by_raw():
             self.write("[")
@@ -456,7 +466,7 @@ class P9H(ast._Unparser):
             for gen in node.generators:
                 self.traverse(gen)
             self.write("]")
-            
+
         return self.try_bypass(
             dict(
                 bypass_tools.Bypass_ListComp(BLACK_CHAR, node, p9h_self=self).get_map(),
