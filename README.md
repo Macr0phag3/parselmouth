@@ -110,10 +110,10 @@ print(status, c_result, result)
 - [ ] `exec`、`eval` + `open` 执行库代码
 - [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`
 - [x] `'__builtins__'` -> `'\u005f\u005f\u0062\u0075\u0069\u006c\u0074\u0069\u006e\u0073\u005f\u005f'`
-- [x] `"os"` -> `"o" + "s"`
+- [x] `"os"` -> `"o" + "s"` [@chi111i](https://github.com/chi111i)
 - [ ] `'__buil''tins__'` -> `str.__add__('__buil', 'tins__')`
 - [x] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)` [@chi111i](https://github.com/chi111i)
-- [x] `__import__` -> `getattr(__builtins__, "__import__")`
+- [x] `__import__` -> `getattr(__builtins__, "__import__")` [@chi111i](https://github.com/chi111i)
 - [ ] `__import__` -> `__builtins__.__dict__['__import__']`
 - [ ] `__import__` -> `__loader__().load_module`
 - [ ] `str.find` -> `vars(str)["find"]`
