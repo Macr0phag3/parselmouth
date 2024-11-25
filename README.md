@@ -80,10 +80,13 @@ print(status, c_result, result)
 | Bypass_String    | by_format   | `"macr0phag3"` | `'{}{}{}{}{}{}{}{}{}{}'.format(chr(109), chr(97), chr(99), chr(114), chr(48), chr(112), chr(104), chr(97), chr(103), chr(51))`  | format 绕过限制 |
 | Bypass_String    | by_hex_encode   | `"macr0phag3"` | `"\x6d\x61\x63\x72\x30\x70\x68\x61\x67\x33"`  | hex 编码绕过限制 |
 | Bypass_String    | by_unicode_encode   | `"macr0phag3"` | `"\u006d\u0061\u0063\u0072\u0030\u0070\u0068\u0061\u0067\u0033"`  | unicode 编码绕过限制 |
+| Bypass_String    | by_char_format   | `"macr0phag3"` | `"%c%c%c%c%c%c%c%c%c%c%c%c" % (95,95,98,117,105,108,116,105,110,115,95,95)`  | %c format 编码绕过限制 |
+| Bypass_String    | by_char_add   | `"macr0phag3"` | `'m'+'a'+'c'+'r'+'0'+'p'+'h'+'a'+'g'+'3'`  | 字符加法运算绕过限制 |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Name    | by_unicode   | `__import__` | `_＿import_＿` | unicode 绕过|
+| Bypass_Name    | by_builtins   | `__import__` | `getattr(__builtins__, "__import__")` | 从 builtins 获取 name |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
@@ -92,6 +95,11 @@ print(status, c_result, result)
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Keyword    | by_unicode   | `str(object=1)` | `str(ᵒbject=1)` | unicode 绕过|
+
+|  类   |   方法名  | payload | bypass | 解释说明 |
+| ----- | -------- | ------- | ------- | ----- |
+| Bypass_BoolOp    | by_bitwise   | `'yes' if 1 and (2 or 3) or 2 and 3 else 'no'` | `'yes' if 1&(2|3)|2&3 else 'no'` | unicode 绕过|
+| Bypass_BoolOp    | by_arithmetic   | `'yes' if (__import__ and (2 or 3)) or (2 and 3) else 'no'` | `'yes' if bool(bool(__imp𝒐rt__)*bool(bool(2)+bool(3)))+bool(bool(2)*bool(3)) else 'no'` | unicode 绕过|
 
 
 以及上述所有方法的组合 bypass。
@@ -107,10 +115,10 @@ print(status, c_result, result)
 - [ ] `exec`、`eval` + `open` 执行库代码
 - [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`
 - [x] `'__builtins__'` -> `'\u005f\u005f\u0062\u0075\u0069\u006c\u0074\u0069\u006e\u0073\u005f\u005f'`
-- [ ] `"os"` -> `"o" + "s"`
+- [x] `"os"` -> `"o" + "s"` [@chi111i](https://github.com/chi111i)
 - [ ] `'__buil''tins__'` -> `str.__add__('__buil', 'tins__')`
-- [ ] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)`
-- [ ] `__import__` -> `getattr(__builtins__, "__import__")`
+- [x] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)` [@chi111i](https://github.com/chi111i)
+- [x] `__import__` -> `getattr(__builtins__, "__import__")` [@chi111i](https://github.com/chi111i)
 - [ ] `__import__` -> `__builtins__.__dict__['__import__']`
 - [ ] `__import__` -> `__loader__().load_module`
 - [ ] `str.find` -> `vars(str)["find"]`
@@ -125,11 +133,11 @@ print(status, c_result, result)
 - [ ] `1` -> `int(max(max(dict(a၁=()))))`
 - [ ] `[i for i in range(10) if i == 5]` -> `[[i][0]for(i)in(range(10))if(i)==5]`
 - [ ] `==` -> `in`
-- [ ] `True or False` -> `(True) | (False)`
-- [ ] `True or False` -> `bool(- (True) - (False))`
-- [ ] `True or False` -> `bool((True) + (False))`
-- [ ] `True and False` -> `(True) & (False)`
-- [ ] `True and False` -> `bool((True) * (False))`
+- [x] `True or False` -> `(True) | (False)` [@chi111i](https://github.com/chi111i)
+- [ ] ~~`True or False` -> `bool(- (True) - (False))`~~ 感觉不实用
+- [x] `True or False` -> `bool((True) + (False))` [@chi111i](https://github.com/chi111i)
+- [x] `True and False` -> `(True) & (False)` [@chi111i](https://github.com/chi111i)
+- [x] `True and False` -> `bool((True) * (False))` [@chi111i](https://github.com/chi111i)
 - [ ] `[2, 20, 30]` -> `[i for i in range(31) for j in range(31) if i==0 and j == 2 or i == 1 and j ==20 or i == 2 and j == 30]`
 
 ## 4. Others

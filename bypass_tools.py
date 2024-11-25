@@ -3,8 +3,9 @@ import string
 import inspect
 import functools
 import copy
+import builtins
 
-import sympy
+import sympy  # type: ignore
 
 import parselmouth as p9h
 
@@ -298,6 +299,7 @@ class Bypass_Int(_Bypass):
             try:
                 _result = str(sympy.simplify(result)).replace("x", "")
             except Exception as e:
+                print(f"[DEBUG] sympy simplify error: {e}")
                 pass
             else:
                 if not p9h.check(_result, ignore_space=True):
@@ -306,6 +308,7 @@ class Bypass_Int(_Bypass):
             return self.P9H(result.replace("x", "")).visit()
 
         else:
+            print(f"[DEBUG] Calculation failed for target: {target}")
             return str(self.node._value)
 
     @recursion_protect
@@ -330,12 +333,21 @@ class Bypass_String(_Bypass):
         self.node._value = getattr(self.node, "value")
 
     def _join(self, items):
+        items = list(items)
+        if len(items) == 1:
+            return self.P9H(items[0]).visit()
+
         if p9h.check("+"):
             # + 在黑名单中，使用 str.join 替代
             return self.P9H(f"''.join(({','.join(items)}))").visit()
         else:
             # 否则直接使用 +
-            return "(" + self.P9H(f"{'+'.join(items)}").visit() + ")"
+            # 这里最好加上括号，对原有运算优先级造成影响
+            # 因此会引入额外无用的括号，对 Python 来说
+            # ast.dump(ast.parse('1+1')) == ast.dump(ast.parse('(1+1)'))
+            # 暂时没有太好的办法 :(
+            # print([i[2]["self"].source_code for i in get_stack() if i[1] == "visit"])
+            return self.P9H(f"{'+'.join(items)}").visit()
 
     @recursion_protect
     def by_empty_str(self):
@@ -353,14 +365,16 @@ class Bypass_String(_Bypass):
         return repr(self.node._value)
 
     @recursion_protect
-    def by_join_map_str(self):
-        return self.P9H(
-            f"''.join(map(chr, {[ord(i) for i in self.node._value]}))"
-        ).visit()
+    def by_char_add(self):
+        """
+        'macr0phag3' => 'm'+'a'+'c'+'r'+'0'+'p'+'h'+'a'+'g'+'3'
+        """
+
+        return self._join(map(repr, list(self.node._value)))
 
     @recursion_protect
     def by_dict(self):
-        # iden 用于利用标识符构建字符串的 bypass
+        # 用于利用标识符构建字符串的 bypass
         iden = self.node._value
         iden_tail = ""
         if not iden.isidentifier():
@@ -404,10 +418,38 @@ class Bypass_String(_Bypass):
         return f"'{r}'"
 
     @recursion_protect
+    def by_char_format(self):
+        """
+        '__builtins__' => '%c%c%c%c%c%c%c%c%c%c%c%c' % (95,95,98,117,105,108,116,105,110,115,95,95)
+        """
+
+        # 避免无限递归
+        _s = [i for i in get_stack() if i[1].startswith("by_")][1:]
+        for i in _s:
+            # 如果上一个 bypass 用的也是 chr_format
+            # 并且参数就是 chr_format 所必须的字符 %、c
+            # 就不要再用 chr_format bypass 尝试了
+            if i[1] == "by_char_format" and set(i[2]) | set("%c"):
+                return repr(self.node._value)
+
+        format_str = "%c" * len(self.node._value)
+        if len(self.node._value) == 1:
+            # 防止出现 "%c" % -5**2+7+7**2+9**2-True
+            num = "(" + self.P9H(str(ord(self.node._value))).visit() + ")"
+        else:
+            num = str(tuple(map(ord, self.node._value)))
+
+        result = f"({self.P9H(repr(format_str)).visit()})%{num}"
+        return self.P9H(result).visit()
+
+    @recursion_protect
     def by_format(self):
         # 避免无限递归
         _s = [i for i in get_stack() if i[1].startswith("by_")][1:]
         for i in _s:
+            # 如果上一个 bypass 用的也是 format
+            # 并且参数就是 format 所必须的字符 {、}
+            # 就不要再用 format bypass 尝试了
             if i[1] == "by_format" and set(i[2]) | set("{}"):
                 return repr(self.node._value)
 
@@ -486,8 +528,21 @@ class Bypass_Name(_Bypass):
 
             _result = _result.replace(kwd, fixed_str + "".join(_kwd))
 
-        # print(_result)
         return _result
+
+    @recursion_protect
+    def by_builtins(self):
+        """
+        __import__ => getattr(__builtins__, "__import__")
+        """
+
+        func_name = self.node._value
+        # 注意这里不能使用  getattr(__builtins__, func_name, None)
+        # 因为本文件是要被 import 的，此时 __builtins__ 会变成字典
+        if not getattr(builtins, func_name, None):
+            return func_name
+
+        return self.P9H(f"getattr(__builtins__, {repr(func_name)})").visit()
 
 
 class Bypass_Attribute(_Bypass):
@@ -522,3 +577,46 @@ class Bypass_Keyword(_Bypass):
             result += self.P9H(arg).visit() + "="
 
         return result + self.P9H(value).visit()
+
+
+class Bypass_BoolOp(_Bypass):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 存储布尔运算的左右操作数和操作符
+        self.node._value = (
+            getattr(self.node, "op").__class__.__name__,
+            getattr(self.node, "values"),
+        )
+
+    @recursion_protect
+    def by_bitwise(self):
+        """
+        (c1 and (c2 or c3)) or (c2 and c3) => c1&(c2|c3)|c2&c3
+        """
+
+        op, values = self.node._value
+        op_map = {"Or": "|", "And": "&"}
+
+        return self.P9H(
+            f"({self.P9H(values[0]).visit()}) {op_map[op]} ({self.P9H(values[1]).visit()})"
+        ).visit()
+
+    @recursion_protect
+    def by_arithmetic(self):
+        """
+        c1 or c2  => (bool(c1)+bool(c2))
+        c1 and c2 => (bool(c1)*bool(c2))
+        """
+        op, values = self.node._value
+
+        if op == "Or":
+            return self.P9H(
+                f"(bool({self.P9H(values[0]).visit()})+bool({self.P9H(values[1]).visit()}))"
+            ).visit()
+
+        elif op == "And":
+            return self.P9H(
+                f"(bool({self.P9H(values[0]).visit()})*bool({self.P9H(values[1]).visit()}))"
+            ).visit()
+        else:
+            return None

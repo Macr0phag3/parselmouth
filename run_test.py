@@ -17,7 +17,15 @@ def bypass(payload, name, specify_bypass_map):
     bypass_result = p9h_ins.visit()
     et = time.time()
     bypassed, c_result = p9h.color_check(bypass_result)
-    bypassed = bypassed and eval(bypass_result) == eval(payload)
+    try:
+        bypassed = bypassed and eval(bypass_result) == eval(payload)
+    except Exception:
+        print(
+            f"{p9h.put_color('[DEBUG] payload 异常', 'red')}, {payload} with {p9h.put_color(p9h.BLACK_CHAR, 'white')}\n",
+            bypass_result,
+        )
+        raise
+
     total += 1
     if not bypassed:
         failed += 1
@@ -205,9 +213,10 @@ simple_testcases = {
                     "by_dict",
                     "by_bytes_single",
                     "by_bytes_full",
-                    "by_join_map_str",
                     "by_unicode_encode",
                     "by_hex_encode",
+                    "by_char_format",
+                    "by_char_add",
                 ],
             },
             {
@@ -218,6 +227,7 @@ simple_testcases = {
                     "by_format",
                     "by_unicode_encode",
                     "by_hex_encode",
+                    "by_char_format",
                 ],
             },
             {"rule": {"kwd": ["'"], "re_kwd": "'"}, "bypass_func": ["*"]},
@@ -244,8 +254,20 @@ simple_testcases = {
             },
             {
                 "rule": {"kwd": ["你"], "re_kwd": "你"},
-                "bypass_func": ["by_join_map_str", "by_unicode_encode"],
+                "bypass_func": [
+                    "by_unicode_encode",
+                    "by_char_format",
+                ],
             },
+        ],
+        "'__builtins__'": [
+            {
+                "rule": {
+                    "kwd": ["__builtins__", "c", "𝒄"],
+                    "re_kwd": "__builtins__|c|𝒄",
+                },
+                "bypass_func": [],
+            }
         ],
     },
     "Bypass_Attribute": {
@@ -271,9 +293,24 @@ simple_testcases = {
     },
     "Bypass_Name": {
         "__import__": [
-            {"rule": {"kwd": ["__"], "re_kwd": "__"}, "bypass_func": ["*"]},
+            {"rule": {"kwd": ["__i"], "re_kwd": "__i"}, "bypass_func": ["*"]},
             {"rule": {"kwd": ["import"], "re_kwd": "import"}, "bypass_func": ["*"]},
             {"rule": {"kwd": ["imp", "rt"], "re_kwd": "imp|rt"}, "bypass_func": ["*"]},
+            {"rule": {"kwd": ["__", "o", "𝒐"], "re_kwd": "__|o|𝒐"}, "bypass_func": []},
+        ],
+    },
+    "Bypass_BoolOp": {
+        "'yes' if 1 and (2 or 3) or 2 and 3 else 'no'": [
+            {
+                "rule": {"kwd": ["or", "and"], "re_kwd": "or|and"},
+                "bypass_func": ["*"],
+            }
+        ],
+        "'yes' if (__import__ and (2 or 3)) or (2 and 3) else 'no'": [
+            {
+                "rule": {"kwd": ["or", "and"], "re_kwd": "or|and"},
+                "bypass_func": ["by_arithmetic"],
+            }
         ],
     },
     "Integrated": {
@@ -350,7 +387,6 @@ for bypass_type in simple_testcases:
                 bypass(payload, "BruteForce", {})
 
     print("  [+] report")
-    # print(test_report)
     for i in test_report:
         _color = ["yellow", "green"][bool(test_report[i])]
         print(

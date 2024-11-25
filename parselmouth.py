@@ -71,9 +71,19 @@ class P9H(ast._Unparser):
         globals()["FORMAT_SPACE"] = ""
         self.source_code = source_code
         # print("source_code", depth, source_code)
-        self.source_node = (
-            source_code if isinstance(source_code, ast.AST) else ast.parse(source_code)
-        )
+        try:
+            self.source_node = (
+                source_code
+                if isinstance(source_code, ast.AST)
+                else ast.parse(source_code)
+            )
+        except Exception:
+            print(
+                put_color(f"[!] invalid python code:", "red"),
+                put_color(source_code, "white"),
+            )
+            raise
+
         self.verbose = versbose
         if bypass_history == None:
             self.bypass_history = {"success": {}, "failed": []}
@@ -251,23 +261,19 @@ class P9H(ast._Unparser):
                     min_exp = result
                     break
 
-                # print("succ", result)
-                # break
-
         if min_exp == "1" * (10**5):
             # 说明未成功
             self.cprint(
                 put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
             )
             self.bypass_history["failed"].append(raw_code)
-            # print(f"结束，回退, {raw_code}")
+
             result = raw_code
         else:
             result = min_exp
             self.bypass_history["success"][raw_code] = result
 
         self._source += [result]
-        # print("当前 payload:", self._source)
         return result
 
     def write(self, *text):
@@ -435,6 +441,30 @@ class P9H(ast._Unparser):
                 self.write(" ")
             self.set_precedence(operator_precedence, node.operand)
             self.traverse(node.operand)
+
+    def visit_BoolOp(self, node):
+        def _by_raw():
+            self.write("(")
+            self.set_precedence(
+                (
+                    ast._Precedence.OR
+                    if isinstance(node.op, ast.Or)
+                    else ast._Precedence.AND
+                ),
+                node,
+            )
+            for i, value in enumerate(node.values):
+                if i > 0:
+                    self.write(f" {self.boolops[node.op.__class__.__name__]} ")
+                self.traverse(value)
+            self.write(")")
+
+        return self.try_bypass(
+            dict(
+                bypass_tools.Bypass_BoolOp(BLACK_CHAR, node, p9h_self=self).get_map(),
+                **{"by_raw": _by_raw},
+            )
+        )
 
 
 Recursion_LIMIT = 5000
