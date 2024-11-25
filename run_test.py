@@ -299,6 +299,20 @@ simple_testcases = {
             {"rule": {"kwd": ["__", "o", "𝒐"], "re_kwd": "__|o|𝒐"}, "bypass_func": []},
         ],
     },
+    "Bypass_BoolOp": {
+        "'yes' if 1 and (2 or 3) or 2 and 3 else 'no'": [
+            {
+                "rule": {"kwd": ["or", "and"], "re_kwd": "or|and"},
+                "bypass_func": ["*"],
+            }
+        ],
+        "'yes' if (__import__ and (2 or 3)) or (2 and 3) else 'no'": [
+            {
+                "rule": {"kwd": ["or", "and"], "re_kwd": "or|and"},
+                "bypass_func": ["by_arithmetic"],
+            }
+        ],
+    },
     "Integrated": {
         "__import__('os').popen('whoami').read()": [
             {
@@ -343,20 +357,6 @@ simple_testcases = {
                     "re_kwd": "__|\.|'|\"|read|chr|ᶜ|=|:|0|1| |\t",
                 },
                 "bypass_func": [],
-                #         },
-                #     ],
-                # },
-                # "Bypass_BoolOp": {
-                #     "True or False": [
-                #         {
-                #             "rule": {"kwd": ["or"], "re_kwd": "or"},
-                #             "bypass_func": ["by_bitwise", "by_arithmetic"],
-                #         },
-                #     ],
-                #     "True and False": [
-                #         {
-                #             "rule": {"kwd": ["and"], "re_kwd": "and"},
-                #             "bypass_func": ["by_bitwise", "by_arithmetic"],
             },
         ],
     },
@@ -387,7 +387,6 @@ for bypass_type in simple_testcases:
                 bypass(payload, "BruteForce", {})
 
     print("  [+] report")
-    # print(test_report)
     for i in test_report:
         _color = ["yellow", "green"][bool(test_report[i])]
         print(

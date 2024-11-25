@@ -71,9 +71,19 @@ class P9H(ast._Unparser):
         globals()["FORMAT_SPACE"] = ""
         self.source_code = source_code
         # print("source_code", depth, source_code)
-        self.source_node = (
-            source_code if isinstance(source_code, ast.AST) else ast.parse(source_code)
-        )
+        try:
+            self.source_node = (
+                source_code
+                if isinstance(source_code, ast.AST)
+                else ast.parse(source_code)
+            )
+        except Exception:
+            print(
+                put_color(f"[!] invalid python code:", "red"),
+                put_color(source_code, "white"),
+            )
+            raise
+
         self.verbose = versbose
         if bypass_history == None:
             self.bypass_history = {"success": {}, "failed": []}
@@ -431,9 +441,6 @@ class P9H(ast._Unparser):
                 self.write(" ")
             self.set_precedence(operator_precedence, node.operand)
             self.traverse(node.operand)
-
-    # def visit_BinOp(self, node):
-    #     pass
 
     def visit_BoolOp(self, node):
         def _by_raw():

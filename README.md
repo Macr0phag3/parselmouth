@@ -96,6 +96,11 @@ print(status, c_result, result)
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Keyword    | by_unicode   | `str(object=1)` | `str(ᵒbject=1)` | unicode 绕过|
 
+|  类   |   方法名  | payload | bypass | 解释说明 |
+| ----- | -------- | ------- | ------- | ----- |
+| Bypass_BoolOp    | by_bitwise   | `'yes' if 1 and (2 or 3) or 2 and 3 else 'no'` | `'yes' if 1&(2|3)|2&3 else 'no'` | unicode 绕过|
+| Bypass_BoolOp    | by_arithmetic   | `'yes' if (__import__ and (2 or 3)) or (2 and 3) else 'no'` | `'yes' if bool(bool(__imp𝒐rt__)*bool(bool(2)+bool(3)))+bool(bool(2)*bool(3)) else 'no'` | unicode 绕过|
+
 
 以及上述所有方法的组合 bypass。
 
@@ -128,11 +133,11 @@ print(status, c_result, result)
 - [ ] `1` -> `int(max(max(dict(a၁=()))))`
 - [ ] `[i for i in range(10) if i == 5]` -> `[[i][0]for(i)in(range(10))if(i)==5]`
 - [ ] `==` -> `in`
-- [ ] `True or False` -> `(True) | (False)`
-- [ ] `True or False` -> `bool(- (True) - (False))`
-- [ ] `True or False` -> `bool((True) + (False))`
-- [ ] `True and False` -> `(True) & (False)`
-- [ ] `True and False` -> `bool((True) * (False))`
+- [x] `True or False` -> `(True) | (False)` [@chi111i](https://github.com/chi111i)
+- [ ] ~~`True or False` -> `bool(- (True) - (False))`~~ 感觉不实用
+- [x] `True or False` -> `bool((True) + (False))` [@chi111i](https://github.com/chi111i)
+- [x] `True and False` -> `(True) & (False)` [@chi111i](https://github.com/chi111i)
+- [x] `True and False` -> `bool((True) * (False))` [@chi111i](https://github.com/chi111i)
 - [ ] `[2, 20, 30]` -> `[i for i in range(31) for j in range(31) if i==0 and j == 2 or i == 1 and j ==20 or i == 2 and j == 30]`
 
 ## 4. Others

@@ -579,70 +579,44 @@ class Bypass_Keyword(_Bypass):
         return result + self.P9H(value).visit()
 
 
-# class Bypass_BoolOp(_Bypass):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         # 存储布尔运算的左右操作数和操作符
-#         self.node._value = (
-#             getattr(self.node, "op").__class__.__name__,
-#             getattr(self.node, "values"),
-#         )
+class Bypass_BoolOp(_Bypass):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 存储布尔运算的左右操作数和操作符
+        self.node._value = (
+            getattr(self.node, "op").__class__.__name__,
+            getattr(self.node, "values"),
+        )
 
-#     @recursion_protect
-#     def by_bitwise(self):
-#         """使用位运算符替代 and/or: True or False -> True | False"""
-#         op, values = self.node._value
-#         if len(values) != 2:
-#             return None
+    @recursion_protect
+    def by_bitwise(self):
+        """
+        (c1 and (c2 or c3)) or (c2 and c3) => c1&(c2|c3)|c2&c3
+        """
 
-#         op_map = {"Or": "|", "And": "&"}
-#         if op not in op_map:
-#             return None
+        op, values = self.node._value
+        op_map = {"Or": "|", "And": "&"}
 
-#         result = f"({self.P9H(values[0]).visit()}) {op_map[op]} ({self.P9H(values[1]).visit()})"
-#         if not p9h.check(result):
-#             return self.P9H(result).visit()
-#         return None
+        return self.P9H(
+            f"({self.P9H(values[0]).visit()}) {op_map[op]} ({self.P9H(values[1]).visit()})"
+        ).visit()
 
-# @recursion_protect
-# def by_arithmetic(self):
-#     """使用算术运算替代 and/or:
-#     True or False -> bool(-(True)-(False))
-#     True or False -> bool((True)+(False))
-#     True and False -> bool((True)*(False))
-#     """
-#     op, values = self.node._value
-#     if len(values) != 2:
-#         return None
+    @recursion_protect
+    def by_arithmetic(self):
+        """
+        c1 or c2  => (bool(c1)+bool(c2))
+        c1 and c2 => (bool(c1)*bool(c2))
+        """
+        op, values = self.node._value
 
-#     ops = []
-#     if op == "Or":
-#         # or 可以用 bool(-(a)-(b)) 或 bool(a+b)
-#         if not p9h.check("-"):
-#             ops.append(
-#                 f"bool(-({self.P9H(values[0]).visit()})-({self.P9H(values[1]).visit()}))"
-#             )
-#         if not p9h.check("+"):
-#             ops.append(
-#                 f"bool(({self.P9H(values[0]).visit()})+({self.P9H(values[1]).visit()}))"
-#             )
+        if op == "Or":
+            return self.P9H(
+                f"(bool({self.P9H(values[0]).visit()})+bool({self.P9H(values[1]).visit()}))"
+            ).visit()
 
-#     elif op == "And":
-#         # and 可以用 bool(a*b)
-#         if not p9h.check("*"):
-#             ops.append(
-#                 f"bool(({self.P9H(values[0]).visit()})*({self.P9H(values[1]).visit()}))"
-#             )
-
-#     for result in ops:
-#         if not p9h.check(result):
-#             return self.P9H(result).visit()
-#     return None
-
-
-# class Bypass_ListComp(_Bypass):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.node._value = (getattr(self.node, "elt"), getattr(self.node, "generators"))
-
-#     # 删除 by_nested_comp 方法
+        elif op == "And":
+            return self.P9H(
+                f"(bool({self.P9H(values[0]).visit()})*bool({self.P9H(values[1]).visit()}))"
+            ).visit()
+        else:
+            return None
