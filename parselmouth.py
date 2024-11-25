@@ -466,21 +466,6 @@ class P9H(ast._Unparser):
             )
         )
 
-    def visit_ListComp(self, node):
-        def _by_raw():
-            self.write("[")
-            self.traverse(node.elt)
-            for gen in node.generators:
-                self.traverse(gen)
-            self.write("]")
-
-        return self.try_bypass(
-            dict(
-                bypass_tools.Bypass_ListComp(BLACK_CHAR, node, p9h_self=self).get_map(),
-                **{"by_raw": _by_raw},
-            )
-        )
-
 
 Recursion_LIMIT = 5000
 sys.setrecursionlimit(Recursion_LIMIT)
