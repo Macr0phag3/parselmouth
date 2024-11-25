@@ -277,19 +277,22 @@ class P9H(ast._Unparser):
         return result
 
     def write(self, *text):
-        """Add new source parts"""
+        """
+        覆盖掉 write 主要是为了自定义 FORMAT_SPACE
+        若后续新增 bypass 时发现出现了空格，就是在这里漏掉了
+        """
         stack = bypass_tools.get_stack(num=5)
         _text = text[:]
-        if (
-            stack[2][1] == "visit_BinOp"
-            or "visit_List" in str(stack[3][2].get("inter", None))
-            or stack[4][1] == "visit_Call"
-        ):
+        # print(_text, [i[1] for i in stack if i[1].startswith("visit_")])
+        visit_stacks = [i[1] for i in stack if i[1].startswith("visit_")]
+        if visit_stacks and visit_stacks[0] in [
+            "visit_BinOp",
+            "visit_Call",
+            "visit_List",
+            "visit_Tuple",
+        ]:
             _text = [i.replace(" ", FORMAT_SPACE) for i in text]
-        # else:
-        #     print("-" * 10, text, "-" * 10)
-        #     pprint.pprint(stack)
-        #     print()
+
         self._source.extend(_text)
 
     def visit(self):

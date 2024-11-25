@@ -4,7 +4,7 @@ import parselmouth as p9h
 
 
 def bypass(payload, name, specify_bypass_map):
-    global failed, total
+    global failed, total, has_space
 
     p9h.BLACK_CHAR = config["rule"]
     p9h_ins = p9h.P9H(
@@ -15,6 +15,12 @@ def bypass(payload, name, specify_bypass_map):
     )
     st = time.time()
     bypass_result = p9h_ins.visit()
+    if " " in bypass_result:
+        print(
+            f"{p9h.put_color('[DEBUG] payload 含空格，问题详见 P9H.write', 'yellow')}, {payload} with {p9h.put_color(p9h.BLACK_CHAR, 'white')}\n",
+            bypass_result,
+        )
+
     et = time.time()
     bypassed, c_result = p9h.color_check(bypass_result)
     try:
@@ -297,6 +303,9 @@ simple_testcases = {
             {"rule": {"kwd": ["import"], "re_kwd": "import"}, "bypass_func": ["*"]},
             {"rule": {"kwd": ["imp", "rt"], "re_kwd": "imp|rt"}, "bypass_func": ["*"]},
             {"rule": {"kwd": ["__", "o", "𝒐"], "re_kwd": "__|o|𝒐"}, "bypass_func": []},
+        ],
+        "dict(a=__import__)": [
+            {"rule": {"kwd": ["__i"], "re_kwd": "__i"}, "bypass_func": ["*"]}
         ],
     },
     "Bypass_BoolOp": {

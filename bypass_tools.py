@@ -343,10 +343,6 @@ class Bypass_String(_Bypass):
         else:
             # 否则直接使用 +
             # 这里最好加上括号，对原有运算优先级造成影响
-            # 因此会引入额外无用的括号，对 Python 来说
-            # ast.dump(ast.parse('1+1')) == ast.dump(ast.parse('(1+1)'))
-            # 暂时没有太好的办法 :(
-            # print([i[2]["self"].source_code for i in get_stack() if i[1] == "visit"])
             return self.P9H(f"{'+'.join(items)}").visit()
 
     @recursion_protect
@@ -536,13 +532,18 @@ class Bypass_Name(_Bypass):
         __import__ => getattr(__builtins__, "__import__")
         """
 
-        func_name = self.node._value
+        name = self.node._value
         # 注意这里不能使用  getattr(__builtins__, func_name, None)
         # 因为本文件是要被 import 的，此时 __builtins__ 会变成字典
-        if not getattr(builtins, func_name, None):
-            return func_name
+        if not getattr(builtins, name, None):
+            return name
 
-        return self.P9H(f"getattr(__builtins__, {repr(func_name)})").visit()
+        if name in [i[2]["node"].arg for i in get_stack() if i[1] in ["visit_keyword"]]:
+            # 注意以下几种场景无法替换:
+            # dict(__import__=1)
+            return name
+
+        return self.P9H(f"getattr(__builtins__, {repr(name)})").visit()
 
 
 class Bypass_Attribute(_Bypass):
