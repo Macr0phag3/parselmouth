@@ -98,7 +98,7 @@ print(status, c_result, result)
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
-| Bypass_BoolOp    | by_bitwise   | `'yes' if 1 and (2 or 3) or 2 and 3 else 'no'` | `'yes' if 1&(2|3)|2&3 else 'no'` | unicode 绕过|
+| Bypass_BoolOp    | by_bitwise   | `'yes' if 1 and (2 or 3) or 2 and 3 else 'no'` | `'yes' if 1&(2\|3)\|2&3 else 'no'` | unicode 绕过|
 | Bypass_BoolOp    | by_arithmetic   | `'yes' if (__import__ and (2 or 3)) or (2 and 3) else 'no'` | `'yes' if bool(bool(__imp𝒐rt__)*bool(bool(2)+bool(3)))+bool(bool(2)*bool(3)) else 'no'` | unicode 绕过|
 
 
