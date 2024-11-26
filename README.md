@@ -91,6 +91,7 @@ print(status, c_result, result)
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过|
+| Bypass_Attribute    | by_getattr   | `str.find` | `vars(str)["find"]` | vars 绕过|
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
@@ -121,7 +122,7 @@ print(status, c_result, result)
 - [x] `__import__` -> `getattr(__builtins__, "__import__")` [@chi111i](https://github.com/chi111i)
 - [ ] `__import__` -> `__builtins__.__dict__['__import__']`
 - [ ] `__import__` -> `__loader__().load_module`
-- [ ] `str.find` -> `vars(str)["find"]`
+- [x] `str.find` -> `vars(str)["find"]`
 - [ ] `str.find` -> `str.__dict__["find"]`  # 注意基础类型 或者 自定义 `__slots__` 没有 `__dict__` 属性
 - [ ] `",".join("123")` -> `"".__class__.join(",", "123")`
 - [ ] `",".join("123")` -> `str.join(",", "123")`
