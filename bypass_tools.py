@@ -558,6 +558,16 @@ class Bypass_Attribute(_Bypass):
             f"getattr({self.P9H(self.node._value[0]).visit()}, {repr(self.node._value[1])})",
         ).visit()
 
+    @recursion_protect
+    def by_vars(self):
+        """
+        str.find => vars(str)["find"]
+        """
+
+        return self.P9H(
+            f"vars({self.P9H(self.node._value[0]).visit()})[{repr(self.node._value[1])}]",
+        ).visit()
+
 
 class Bypass_Call(_Bypass):
     pass

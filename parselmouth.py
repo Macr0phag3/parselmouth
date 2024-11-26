@@ -557,6 +557,9 @@ if __name__ == "__main__":
     except Exception:
         sys.exit(put_color("[x] --re-rule regex is invalid", "red"))
 
+    if re.findall(args.re_rule, "4ϟΘ#"):
+        print(put_color("[!] regex is toooooo broad", "yellow"))
+
     if args.minlen and args.minset:
         sys.exit(put_color("[x] --minlen or --minset, not both", "red"))
 
@@ -568,7 +571,11 @@ if __name__ == "__main__":
         min_len=args.minlen,
         min_set=args.minset,
     )
-    exp = p9h.visit()
+    try:
+        exp = p9h.visit()
+    except KeyboardInterrupt:
+        sys.exit(put_color("\r\n[!] exit? yes, master", "yellow"))
+
     result, c_payload = color_check(exp)
 
     print(

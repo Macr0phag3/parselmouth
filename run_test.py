@@ -290,8 +290,8 @@ simple_testcases = {
             },
             {
                 "rule": {
-                    "kwd": [" ", "\t", "find", "chr", "ᶜ", ":", "0", "1"],
-                    "re_kwd": " |\t|find|chr|ᶜ|:|0|1",
+                    "kwd": [" ", "\t", "find", "chr", "ᶜ", ":", "0", "1", '"', "'"],
+                    "re_kwd": " |\t|find|chr|ᶜ|:|0|1|'|\"",
                 },
                 "bypass_func": ["*"],
             },
