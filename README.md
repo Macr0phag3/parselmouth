@@ -120,7 +120,6 @@ print(status, c_result, result)
 - [ ] `'__buil''tins__'` -> `str.__add__('__buil', 'tins__')`
 - [x] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)` [@chi111i](https://github.com/chi111i)
 - [x] `__import__` -> `getattr(__builtins__, "__import__")` [@chi111i](https://github.com/chi111i)
-- [ ] `__import__` -> `__builtins__.__dict__['__import__']`
 - [ ] `__import__` -> `__loader__().load_module`
 - [x] `str.find` -> `vars(str)["find"]`
 - [ ] `str.find` -> `str.__dict__["find"]`  # 注意基础类型 或者 自定义 `__slots__` 没有 `__dict__` 属性
