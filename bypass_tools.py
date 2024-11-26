@@ -84,7 +84,8 @@ class _Bypass:
             p9h.P9H,
             bypass_history=p9h_self.bypass_history,
             specify_bypass_map=p9h_self.specify_bypass_map,
-            ensure_min=p9h_self.ensure_min,
+            min_len=p9h_self.min_len,
+            min_set=p9h_self.min_set,
             depth=p9h_self.depth + 3 if p9h_self.verbose >= 2 else p9h_self.depth + 2,
             versbose=p9h_self.verbose,
         )
@@ -308,7 +309,7 @@ class Bypass_Int(_Bypass):
             return self.P9H(result.replace("x", "")).visit()
 
         else:
-            print(f"[DEBUG] Calculation failed for target: {target}")
+            # print(f"[DEBUG] Calculation failed for target: {target}")
             return str(self.node._value)
 
     @recursion_protect
@@ -529,7 +530,7 @@ class Bypass_Name(_Bypass):
     @recursion_protect
     def by_builtins(self):
         """
-        __import__ => getattr(__builtins__, "__import__")
+        __import__ => __builtins__.__import__
         """
 
         name = self.node._value
@@ -539,11 +540,11 @@ class Bypass_Name(_Bypass):
             return name
 
         if name in [i[2]["node"].arg for i in get_stack() if i[1] in ["visit_keyword"]]:
-            # 注意以下几种场景无法替换:
+            # 注意以下几种场景不能进行替换:
             # dict(__import__=1)
             return name
 
-        return self.P9H(f"getattr(__builtins__, {repr(name)})").visit()
+        return self.P9H(f"__builtins__.{name}").visit()
 
 
 class Bypass_Attribute(_Bypass):

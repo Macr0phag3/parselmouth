@@ -28,7 +28,7 @@ p9h.BLACK_CHAR = {"kwd": [".", "'", '"', "chr", "dict"]}
 runner = p9h.P9H(
     "__import__('os').popen('whoami').read()",
     specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}}, 
-    ensure_min=True, versbose=0,
+    min_len=True, versbose=0,
 )
 result = runner.visit()
 status, c_result = p9h.color_check(result)
@@ -38,7 +38,7 @@ print(status, c_result, result)
 `p9h.P9H` 关键参数解释：
 - `source_code`: 需要 bypass 的 payload
 - `specify_bypass_map`: 指定 bypass function 的黑白名单；例如如果不希望变量名通过 unicode 字符的规范化进行 bypass，可以传参 `{"black": {"Bypass_Name": ["by_unicode"]}}`
-- `ensure_min`: 寻找最小的 exp
+- `min_len`: 寻找最小的 exp
 - `versbose`: 输出的详细程度（`0` ~ `3`）
 - `depth`: 通常情况下不需要使用这个参数；打印信息时所需要的缩进数量
 - `bypass_history`: 通常情况下不需要使用这个参数；用于缓存 `可以 bypass` 和 `不可以 bypass` 的已知情况，值示例 `{"success": {}, "failed": []}`
@@ -86,7 +86,7 @@ print(status, c_result, result)
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Name    | by_unicode   | `__import__` | `_＿import_＿` | unicode 绕过|
-| Bypass_Name    | by_builtins   | `__import__` | `getattr(__builtins__, "__import__")` | 从 builtins 获取 name |
+| Bypass_Name    | by_builtins   | `__import__` | `__builtins__.__import__` | 从 builtins 获取 name |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
@@ -111,7 +111,7 @@ print(status, c_result, result)
 ## 3. TODO
 
 - [x] 支持通过参数 `--re-rule` 来指定正则表达式格式的黑名单规则
-- [ ] 支持 payload 字符集合大小限制
+- [x] 支持 payload 字符集合大小限制：目前是贪心算法
 - [ ] `exec`、`eval` + `open` 执行库代码
 - [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`
 - [x] `'__builtins__'` -> `'\u005f\u005f\u0062\u0075\u0069\u006c\u0074\u0069\u006e\u0073\u005f\u005f'`

@@ -40,7 +40,7 @@ def check(payload, ignore_space=False):
 
     if not BLACK_CHAR.get("kwd") and not BLACK_CHAR.get("re_kwd"):
         # 无规则？提示一下
-        sys.exit(put_color(f"[WARN] 规则为空，不需要 bypass", "yellow"))
+        sys.exit(put_color(f"[!] rule is empty, do not need bypass", "red"))
 
     kwd_check = [
         i
@@ -65,7 +65,8 @@ class P9H(ast._Unparser):
         depth=0,
         versbose=1,
         bypass_history=None,
-        ensure_min=False,
+        min_len=False,
+        min_set=False,
         specify_bypass_map={},
     ):
         globals()["FORMAT_SPACE"] = ""
@@ -91,23 +92,34 @@ class P9H(ast._Unparser):
             self.bypass_history = bypass_history
 
         self.depth = depth
-        self.ensure_min = ensure_min
+        self.min_len = min_len
+        self.min_set = min_set
         self.specify_bypass_map = specify_bypass_map
 
         for _type in specify_bypass_map:
             for cls_name in specify_bypass_map[_type]:
                 for func_name in specify_bypass_map[_type][cls_name]:
                     if not (cls_name and func_name):
-                        sys.exit("[x] white_bypass/black_bypass format is `class.func`")
+                        sys.exit(
+                            put_color(
+                                "[x] white_bypass/black_bypass format is `class.func`",
+                                "red",
+                            )
+                        )
 
                     cls = vars(bypass_tools).get(cls_name, None)
                     if not cls:
-                        sys.exit(f"[x] bypass class not found: {cls_name}")
+                        sys.exit(
+                            put_color(f"[x] bypass class not found: {cls_name}", "red")
+                        )
 
                     func = vars(cls).get(func_name, None)
                     if not func:
                         sys.exit(
-                            f"[x] bypass func not found: {func_name} in {cls_name}"
+                            put_color(
+                                f"[x] bypass func not found: {func_name} in {cls_name}",
+                                "red",
+                            )
                         )
 
         super().__init__()
@@ -191,7 +203,8 @@ class P9H(ast._Unparser):
         del bypass_funcs["by_raw"]
 
         # 逐个尝试 bypass
-        min_exp = "1" * (10**5)
+        succeed = False
+        min_exp = "".join(map(chr, range(99999)))
         for func in bypass_funcs:
             cls_name, func_name = bypass_funcs[func].__qualname__.split(".")
 
@@ -246,9 +259,38 @@ class P9H(ast._Unparser):
                     f"use {put_color(func, 'cyan')} {put_color('bypass success', 'green')}",
                     depth=_depth,
                 )
-                if self.ensure_min and len(result) < len(min_exp):
-                    self.cprint(f"found min exp", depth=_depth)
+
+                if self.min_len:
+                    if len(result) < len(min_exp):
+                        self.cprint(
+                            f"found shortest exp, length is {len(result)}",
+                            depth=_depth,
+                        )
+                        min_exp = result
+                        succeed = True
+                    else:
+                        self.cprint(
+                            f"new exp length is {len(result)}, abort it",
+                            level="debug",
+                            depth=_depth,
+                        )
+                elif self.min_set:
+                    # TODO
+                    # 这里需要考虑到历史 bypass 时用到的字符
+                    # 否则就是贪心算法，容易陷入局部最优
+                    # 先用贪心吧，后面再优化
+                    # print(self.bypass_history, result)
+                    if len(set(result)) < len(set(min_exp)):
+                        self.cprint(
+                            f"found min char set exp, size is {len(set(result))}",
+                            depth=_depth,
+                        )
+                        min_exp = result
+                        succeed = True
+                else:
                     min_exp = result
+                    succeed = True
+                    break
 
                 self.cprint(
                     put_color(raw_code, "blue"),
@@ -257,11 +299,7 @@ class P9H(ast._Unparser):
                     depth=_depth,
                 )
 
-                if not self.ensure_min:
-                    min_exp = result
-                    break
-
-        if min_exp == "1" * (10**5):
+        if succeed is not True:
             # 说明未成功
             self.cprint(
                 put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
@@ -501,7 +539,10 @@ if __name__ == "__main__":
         default="{}",
         help='eg. {"white": {"Bypass_String": ["by_dict"]}, "black": []}',
     )
-    parser.add_argument("--ensure-min", action="store_true", help="found min exp")
+    parser.add_argument("--minlen", action="store_true", help="found shortest exp")
+    parser.add_argument(
+        "--minset", action="store_true", help="found minimal character set exp"
+    )
     args = parser.parse_args()
 
     print(f"[*] payload: {put_color(args.payload, 'blue')}")
@@ -514,19 +555,26 @@ if __name__ == "__main__":
     try:
         re.compile(args.re_rule)
     except Exception:
-        sys.exit("[!] --re-rule 的正则表达式有误")
+        sys.exit(put_color("[x] --re-rule regex is invalid", "red"))
+
+    if args.minlen and args.minset:
+        sys.exit(put_color("[x] --minlen or --minset, not both", "red"))
 
     BLACK_CHAR = {"kwd": args.rule, "re_kwd": args.re_rule}
     p9h = P9H(
         args.payload,
         versbose=args.v,
         specify_bypass_map=specify_bypass_map,
-        ensure_min=args.ensure_min,
+        min_len=args.minlen,
+        min_set=args.minset,
     )
-    result, c_payload = color_check(p9h.visit())
+    exp = p9h.visit()
+    result, c_payload = color_check(exp)
 
     print(
         "[*] result:",
         put_color("success" if result else "failed", "green" if result else "red"),
     )
+    print(f"[*] length is {put_color(len(exp), 'cyan')}")
+    print(f"[*] char set size is {put_color(len(set(exp)), 'cyan')}")
     print("[*]", put_color(args.payload, "blue"), "=>", c_payload)

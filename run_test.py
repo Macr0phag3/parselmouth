@@ -4,7 +4,7 @@ import parselmouth as p9h
 
 
 def bypass(payload, name, specify_bypass_map):
-    global failed, total, has_space
+    global failed, total
 
     p9h.BLACK_CHAR = config["rule"]
     p9h_ins = p9h.P9H(
