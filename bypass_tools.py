@@ -557,10 +557,6 @@ class Bypass_Name(_Bypass):
         if not getattr(builtins, name, None):
             return name
 
-        # if name in [i[2]["node"].arg for i in get_stack() if i[1] in ["visit_keyword"]]:
-        #     # 注意以下几种场景不能进行替换:
-        #     # dict(__import__=1)
-        #     return name
         return self.P9H(f"__builtins__.{name}").visit()
 
 

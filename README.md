@@ -113,6 +113,7 @@ print(status, c_result, result)
 
 - [x] 支持通过参数 `--re-rule` 来指定正则表达式格式的黑名单规则
 - [x] 支持 payload 字符集合大小限制：目前是贪心算法
+- [x] 优化 bypass 单元测试
 - [ ] `exec`、`eval` + `open` 执行库代码
 - [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`
 - [x] `'__builtins__'` -> `'\u005f\u005f\u0062\u0075\u0069\u006c\u0074\u0069\u006e\u0073\u005f\u005f'`
