@@ -1,4 +1,5 @@
 import operator
+import ast
 import string
 import inspect
 import functools
@@ -300,7 +301,7 @@ class Bypass_Int(_Bypass):
             try:
                 _result = str(sympy.simplify(result)).replace("x", "")
             except Exception as e:
-                print(f"[DEBUG] sympy simplify error: {e}")
+                # print(f"[DEBUG] sympy simplify error: {e}")
                 pass
             else:
                 if not p9h.check(_result, ignore_space=True):
@@ -314,14 +315,29 @@ class Bypass_Int(_Bypass):
 
     @recursion_protect
     def by_ord(self):
-        if 0 <= self.node._value < 0x110000:
-            return self.P9H(f"ord({repr(chr(self.node._value))})").visit()
-            # return f"ord({repr(chr(self.node._value))})"
+        prefix = ""
+        if self.node._value < 0:
+            prefix = "-"
+
+        value = abs(self.node._value)
+        if 0 <= value < 0x110000:
+            return self.P9H(f"{prefix}ord({repr(chr(value))})").visit()
         else:
             return self.node._value
 
     @recursion_protect
     def by_unicode(self):
+        # 注意，\d 是会匹配到任意数字 unicode 的
+        # 证明:
+        # for i in range(0x110000):
+        #     i = chr(i)
+        #     try:
+        #         int(i)
+        #     except:
+        #         continue
+        #     if not re.findall("\d", i):
+        #         print(i)
+        # 结果为空
         umap = dict(zip(string.digits, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"))
         return self.P9H(
             f'int({repr("".join([umap.get(i, i) for i in str(self.node._value)]))})',
@@ -403,6 +419,8 @@ class Bypass_String(_Bypass):
 
     @recursion_protect
     def by_hex_encode(self):
+        # hex 编码理论上通过编解码，也可以支持非 ascii 字符
+        # 但是算了，感觉不是很实用
         if all(ord(i) in range(256) for i in self.node._value):
             r = "".join("\\x{:02x}".format(ord(c)) for c in self.node._value)
             return f"'{r}'"
@@ -539,11 +557,10 @@ class Bypass_Name(_Bypass):
         if not getattr(builtins, name, None):
             return name
 
-        if name in [i[2]["node"].arg for i in get_stack() if i[1] in ["visit_keyword"]]:
-            # 注意以下几种场景不能进行替换:
-            # dict(__import__=1)
-            return name
-
+        # if name in [i[2]["node"].arg for i in get_stack() if i[1] in ["visit_keyword"]]:
+        #     # 注意以下几种场景不能进行替换:
+        #     # dict(__import__=1)
+        #     return name
         return self.P9H(f"__builtins__.{name}").visit()
 
 
@@ -586,7 +603,13 @@ class Bypass_Keyword(_Bypass):
         if arg is None:
             result += "**"
         else:
-            result += self.P9H(arg).visit() + "="
+            # arg 即为具名参数的 id
+            # 这里直接 hack 掉直达 Bypass_Name
+            # 因为此时这里一定是 Name, 否则是非法的语句
+            result += (
+                Bypass_Name(p9h.BLACK_CHAR, ast.Name(arg), self.p9h_self).by_unicode()
+                + "="
+            )
 
         return result + self.P9H(value).visit()
 

@@ -141,7 +141,9 @@ class P9H(ast._Unparser):
     def _write_str_avoiding_backslashes(self, string, *, _write=True):
         """Write string literal value with a best effort attempt to avoid backslashes."""
         quote_types = [i for i in ["'", '"'] if not check(i)]  # 这里直接舍弃 ''' 和 """
-        string, quote_types = self._str_literal_helper(string, quote_types=quote_types)
+        string, quote_types = self._str_literal_helper(
+            string, quote_types=quote_types, escape_special_whitespace=True
+        )
         quote_type = quote_types[0]
         result = f"{quote_type}{string}{quote_type}"
         if _write:
@@ -557,7 +559,14 @@ if __name__ == "__main__":
     except Exception:
         sys.exit(put_color("[x] --re-rule regex is invalid", "red"))
 
-    if re.findall(args.re_rule, "4ϟΘ#"):
+    if re.findall(args.re_rule, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"):
+        print(
+            put_color(
+                "[!] regex can match unicode numbers, use `\d` carefully", "yellow"
+            )
+        )
+
+    if re.findall(args.re_rule, "ᑐ ᑌ ᑎ ᕮ"):
         print(put_color("[!] regex is toooooo broad", "yellow"))
 
     if args.minlen and args.minset:
