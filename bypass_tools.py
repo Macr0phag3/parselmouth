@@ -360,7 +360,7 @@ class Bypass_String(_Bypass):
         else:
             # 否则直接使用 +
             # 这里最好加上括号，对原有运算优先级造成影响
-            return self.P9H(f"{'+'.join(items)}").visit()
+            return "(" + self.P9H(f"{'+'.join(items)}").visit() + ")"
 
     @recursion_protect
     def by_empty_str(self):

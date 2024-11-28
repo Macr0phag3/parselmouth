@@ -25,18 +25,19 @@ def check_test(runner):
             "yellow" if runner.failures else "green",
         )
     )
-    print(
-        "  [-] bypass 测试覆盖率: "
-        + p9h.put_color(
-            f"{len(bypass_funcs)}/{len(all_funcs)}={100*round(len(bypass_funcs)/len(all_funcs), 2)}%"
-            + (
-                f", 无测试用例: {all_funcs-bypass_funcs}"
-                if all_funcs - bypass_funcs
-                else ""
-            ),
-            "yellow" if bypass_funcs != all_funcs else "green",
+    if bypass_cls != "Bypass_Combo":  # 没有覆盖率一说
+        print(
+            "  [-] bypass 测试覆盖率: "
+            + p9h.put_color(
+                f"{len(bypass_funcs)}/{len(all_funcs)}={100*round(len(bypass_funcs)/len(all_funcs), 2)}%"
+                + (
+                    f", 无测试用例: {all_funcs-bypass_funcs}"
+                    if all_funcs - bypass_funcs
+                    else ""
+                ),
+                "yellow" if bypass_funcs != all_funcs else "green",
+            )
         )
-    )
     return succ, runner.failures, tries
 
 
