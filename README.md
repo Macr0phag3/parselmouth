@@ -1,9 +1,9 @@
 # parselmouth
 一个自动化的 Python 沙箱逃逸 payload bypass 框架
 
-<img alt="image" src="https://github.com/Macr0phag3/parselmouth/blob/master/cases.png">
+<img alt="image" src="https://github.com/Macr0phag3/parselmouth/blob/master/pic/cases.png">
 
-<img alt="image" src="https://github.com/Macr0phag3/parselmouth/blob/master/main.png">
+<img alt="image" src="https://github.com/Macr0phag3/parselmouth/blob/master/pic/main.png">
 
 ## 1. 快速入门
 - python 版本最好是 >= 3.10
