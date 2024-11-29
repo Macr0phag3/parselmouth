@@ -585,7 +585,24 @@ if __name__ == "__main__":
         f"  [-] regex rule: {put_color(args.re_rule, 'blue')}",
     )
 
-    specify_bypass_map = json.loads(args.specify_bypass)
+    try:
+        specify_bypass_map = json.loads(args.specify_bypass)
+        assert "white" in specify_bypass_map or "black" in specify_bypass_map
+        assert all(
+            [
+                type(list(j.items())[0][1]) is list
+                for j in [i[1] for i in specify_bypass_map.items() if i[1]]
+            ]
+        )
+    except Exception as e:
+        sys.exit(
+            put_color(
+                f"""[!] --specify-bypass is invalid: {e}."""
+                """eg. --specify-bypass '{"white": {"Bypass_Attribute": ["by_vars"]}}'""",
+                "red",
+            )
+        )
+
     print(f"[*] specify bypass map: {specify_bypass_map}")
     if args.minlen or args.minset:
         print(
