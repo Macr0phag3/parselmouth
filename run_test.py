@@ -1,6 +1,7 @@
 import doctest
 import test_case
 import re
+import ast
 
 import parselmouth as p9h
 
@@ -41,10 +42,12 @@ def check_test(runner):
     return succ, runner.failures, tries
 
 
+print(p9h.logo)
 finder = doctest.DocTestFinder()
 tests = finder.find(test_case)
 
 all_succ = all_failed = all_tries = 0
+case_record = []
 for test in tests[::-1]:
     runner = doctest.DocTestRunner()
     runner.run(test)
@@ -53,8 +56,34 @@ for test in tests[::-1]:
     all_failed += failed
     all_tries += tries
 
+    for case in runner.test.examples[1:]:
+        ans = case.want.strip()
+        case = ast.parse(case.source).body
+        args = case[-1].value.args
+        if isinstance(case[0], ast.Assign):
+            bypass_map = ast.unparse(case[0].value)
+        else:
+            bypass_map = args[0].value
+
+        case_record.append([args[1].value, args[3].value, bypass_map, ans])
+
+print()
+for i, case in enumerate(case_record):
+    print(
+        f"[{i+1}]",
+        p9h.put_color(case[0], "blue"),
+        "with",
+        p9h.put_color(case[1], "cyan"),
+        "by",
+        p9h.put_color(case[2], "white"),
+        "=>",
+        p9h.put_color(case[3], "green"),
+    )
+
 print(f"\n[*] 总计测试用例数量: {p9h.put_color(all_tries, 'cyan')}")
 if all_failed:
     print(p9h.put_color(f"[!] 发现 {all_failed} 个失败 case", "yellow"))
 else:
     print(p9h.put_color(f"[*] 所有测试用例均通过检测", "green"))
+
+# print(case_record)

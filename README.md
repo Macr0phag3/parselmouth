@@ -1,7 +1,9 @@
 # parselmouth
 一个自动化的 Python 沙箱逃逸 payload bypass 框架
 
-<img alt="image" src="https://github.com/Macr0phag3/parselmouth/assets/20874963/e4f2765d-ba39-49ba-bcf7-02ab3e83a042">
+<img alt="image" src="https://github.com/Macr0phag3/parselmouth/blob/master/cases.png">
+
+<img alt="image" src="https://github.com/Macr0phag3/parselmouth/blob/master/main.png">
 
 ## 1. 快速入门
 - python 版本最好是 >= 3.10
@@ -13,10 +15,11 @@
   - 当然，很多时候规则字符比较多，所以你也可以考虑通过参数 `--re-rule` 来指定正则表达式格式的黑名单规则，例如 `--re-rule '[0-9]'` 等价于 `--rule "0" "1" "2" "3" "4" "5" "6" "7" "8" "9"`
   - 友情提示，通过 win 命令行使用，如果需要指定 `"`，则要用 `"\""`，如果用 `'"'` 会出现非预期情况（我大概知道是啥原因但是我懒得管 win :)
 - 可以通过 `--specify-bypass` 指定 bypass function 的黑白名单；例如如果不希望 int 通过 unicode 字符的规范化进行 bypass，可以指定参数: `--specify-bypass '{"black": {"Bypass_Int": ["by_unicode"]}}'`
-- `--ensure-min`：寻找最小的 exp
+- `--minlen`：寻找最小的 exp
+- `--minset`：寻找最小字符集的 exp
 - 通过指定参数 `-v` 可以增加输出的信息；通过 `-vv` 可以输出 debug 信息，但通常是不需要的
 
-在定制化 bypass 函数之后，如果想做测试，可以将测试的 payload 和 rule 放在 `run_test.py` 里面，然后通过 `python run_test.py` 进行测试
+在定制化 bypass 函数之后，如果想做测试，可以将测试的 payload、rule、answer 按照放在 `test_case.py` 里面，然后通过 `python run_test.py` 进行测试
 
 ### 1.2 通过 import 使用
 ```python
@@ -113,6 +116,7 @@ print(status, c_result, result)
 
 - [x] 支持通过参数 `--re-rule` 来指定正则表达式格式的黑名单规则
 - [x] 支持 payload 字符集合大小限制：目前是贪心算法
+- [x] 打印可用的 bypass 手法
 - [x] 优化 bypass 单元测试
 - [ ] `exec`、`eval` + `open` 执行库代码
 - [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`

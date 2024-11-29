@@ -544,20 +544,19 @@ sys.setrecursionlimit(Recursion_LIMIT)
 BLACK_CHAR = {}
 FORMAT_SPACE = None
 
-if __name__ == "__main__":
-    print(
-        """:########:  :########:  ##:::::##:\n"""
-        """##.... ##: '##.... ##:  ##:::: ##:\n"""
-        """##:::: ##:  ##.... ##:  ##:::: ##:\n"""
-        """########:: : ########:  #########:\n"""
-        """##.....::: :...... ##:  ##.... ##:\n"""
-        """##:::::::: '##:::: ##:  ##:::: ##:\n"""
-        """##:::::::: . #######::  ##:::: ##:\n"""
-        """..:::::::: ::.......:: :..:::::..::\n""".replace(
-            "#", put_color("#", "green")
-        )
+logo = (
+    """\n"""
+    """    _/_/_/      _/_/    _/    _/\n"""
+    """   _/    _/  _/    _/  _/    _/\n"""
+    """  _/_/_/      _/_/_/  _/_/_/_/\n"""
+    """ _/              _/  _/    _/\n"""
+    """_/        _/_/_/    _/    _/\n""".replace("/", put_color("/", "green")).replace(
+        "_", put_color("_", "cyan")
     )
+)
 
+if __name__ == "__main__":
+    print(logo)
     parser = argparse.ArgumentParser(
         description="parselmouth, automated python sandbox escape payload bypass framework"
     )
