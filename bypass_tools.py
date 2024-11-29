@@ -78,8 +78,6 @@ def get_stack(num=0):
 class _Bypass:
     def __init__(self, rule, node, p9h_self):
         self.node = node
-        # print("p9h_self.depth", p9h_self.depth)
-        # print("p9h_self.bypass_history", p9h_self.bypass_history.__sizeof__())
         self.p9h_self = p9h_self
         self.P9H = functools.partial(
             p9h.P9H,

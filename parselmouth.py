@@ -87,7 +87,7 @@ class P9H(ast._Unparser):
 
         self.verbose = versbose
         if bypass_history == None:
-            self.bypass_history = {"success": {}, "failed": []}
+            self.bypass_history = []
         else:
             self.bypass_history = bypass_history
 
@@ -181,18 +181,23 @@ class P9H(ast._Unparser):
 
         # 清空修改，保护堆栈
         self._source = self._source[:old_len]
-
-        if raw_code in self.bypass_history["success"]:
+        succ_cache = {
+            i["raw"]: i["result"] for i in self.bypass_history if i["is_succ"]
+        }
+        failed_cache = {
+            i["raw"]: i["result"] for i in self.bypass_history if not i["is_succ"]
+        }
+        if raw_code in succ_cache:
             self.cprint(
-                f"already knew {put_color(raw_code, 'blue')} can bypass: {self.bypass_history['success'][raw_code]}",
+                f"already knew {put_color(raw_code, 'blue')} can bypass: {succ_cache[raw_code]}",
                 level="info",
                 depth=self.depth + 2,
             )
-            result = self.bypass_history["success"][raw_code]
+            result = succ_cache[raw_code]
             self._source += [result]
             return result
 
-        if raw_code in self.bypass_history["failed"]:
+        if raw_code in failed_cache:
             # 已知无法 bypass
             self.cprint(
                 f"already knew {put_color(raw_code, 'blue')} cannot bypass",
@@ -245,7 +250,14 @@ class P9H(ast._Unparser):
             self._source = self._source[:old_len]
 
             if result is None:
-                self.bypass_history["failed"].append((func, raw_code))
+                self.bypass_history.append(
+                    {
+                        "is_succ": False,
+                        "raw": raw_code,
+                        "func": cls_name + "." + func,
+                        "result": None,
+                    }
+                )
                 continue
 
             hited_chr = check(result)
@@ -256,12 +268,27 @@ class P9H(ast._Unparser):
                     level="debug",
                     depth=_depth,
                 )
+                self.bypass_history.append(
+                    {
+                        "is_succ": False,
+                        "raw": raw_code,
+                        "func": cls_name + "." + func,
+                        "result": None,
+                    }
+                )
             else:
                 self.cprint(
                     f"use {put_color(func, 'cyan')} {put_color('bypass success', 'green')}",
                     depth=_depth,
                 )
-
+                self.bypass_history.append(
+                    {
+                        "is_succ": True,
+                        "raw": raw_code,
+                        "func": cls_name + "." + func,
+                        "result": result,
+                    }
+                )
                 if self.min_len:
                     if len(result) < len(min_exp):
                         self.cprint(
@@ -306,15 +333,16 @@ class P9H(ast._Unparser):
             self.cprint(
                 put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
             )
-            self.bypass_history["failed"].append(raw_code)
 
             result = raw_code
         else:
             result = min_exp
-            self.bypass_history["success"][raw_code] = result
 
         self._source += [result]
         return result
+
+    def fill(self, text=""):
+        pass
 
     def write(self, *text):
         """
@@ -593,4 +621,17 @@ if __name__ == "__main__":
     )
     print(f"[*] length is {put_color(len(exp), 'cyan')}")
     print(f"[*] char set size is {put_color(len(set(exp)), 'cyan')}")
-    print("[*]", put_color(args.payload, "blue"), "=>", c_payload)
+    print("[*]", put_color("used bypass func", "white"))
+    used_func = {}
+    for history in p9h.bypass_history:
+        if history["is_succ"]:
+            cls, func = history["func"].split(".")
+            if cls not in used_func:
+                used_func[cls] = []
+            if func not in used_func[cls]:
+                used_func[cls].append(func)
+
+    for cls in used_func:
+        print(f"  [-] {put_color(cls, 'cyan')}: {put_color(used_func[cls], 'blue')}")
+
+    print("\n[*]", put_color(args.payload, "blue"), "=>", c_payload)
