@@ -3,6 +3,7 @@ import json
 import re
 import sys
 import argparse
+import time
 
 from colorama import Fore, Style
 
@@ -575,12 +576,24 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    if args.minlen and args.minset:
+        sys.exit(put_color("[x] --minlen or --minset, not both", "red"))
+
     print(f"[*] payload: {put_color(args.payload, 'blue')}")
-    print(f"  [*] rules: {put_color(args.rule, 'cyan')}")
+    print(
+        f"[*] rules\n",
+        f"  [-] keyword rule: {put_color(args.rule, 'blue')}\n",
+        f"  [-] regex rule: {put_color(args.re_rule, 'blue')}",
+    )
 
     specify_bypass_map = json.loads(args.specify_bypass)
-    print(f"  [*] specify bypass map: {specify_bypass_map}")
-    print(f"  [*] versbose: {put_color(args.v, 'white')}")
+    print(f"[*] specify bypass map: {specify_bypass_map}")
+    if args.minlen or args.minset:
+        print(
+            f"[*] min type: {put_color(['shortest', 'minimal char set'][args.minlen or args.minset], 'white')}"
+        )
+    print(f"[*] versbose: {put_color(args.v, 'white')}")
+    print(put_color("\n[*] hacking....\n", "green"))
 
     try:
         re.compile(args.re_rule)
@@ -597,9 +610,6 @@ if __name__ == "__main__":
     if re.findall(args.re_rule, "ᑐ ᑌ ᑎ ᕮ"):
         print(put_color("[!] regex is toooooo broad", "yellow"))
 
-    if args.minlen and args.minset:
-        sys.exit(put_color("[x] --minlen or --minset, not both", "red"))
-
     BLACK_CHAR = {"kwd": args.rule, "re_kwd": args.re_rule}
     p9h = P9H(
         args.payload,
@@ -608,19 +618,25 @@ if __name__ == "__main__":
         min_len=args.minlen,
         min_set=args.minset,
     )
+    start_ts = time.time()
     try:
         exp = p9h.visit()
     except KeyboardInterrupt:
-        sys.exit(put_color("\r\n[!] exit? yes, master", "yellow"))
+        sys.exit(
+            put_color("\r\n[!] exit? yes, master\n", "yellow")
+            + ("[*] cost " + put_color(f"{round(time.time()-start_ts, 2)}s", "cyan"))
+        )
 
+    end_ts = time.time()
     result, c_payload = color_check(exp)
 
     print(
         "[*] result:",
         put_color("success" if result else "failed", "green" if result else "red"),
     )
-    print(f"[*] length is {put_color(len(exp), 'cyan')}")
-    print(f"[*] char set size is {put_color(len(set(exp)), 'cyan')}")
+    print(f"[*] exp length is {put_color(len(exp), 'cyan')}")
+    print(f"[*] exp char set size is {put_color(len(set(exp)), 'cyan')}")
+    print("[*] cost", put_color(f"{round(end_ts-start_ts, 2)}s", "cyan"))
     print("[*]", put_color("used bypass func", "white"))
     used_func = {}
     for history in p9h.bypass_history:
@@ -634,4 +650,4 @@ if __name__ == "__main__":
     for cls in used_func:
         print(f"  [-] {put_color(cls, 'cyan')}: {put_color(used_func[cls], 'blue')}")
 
-    print("\n[*]", put_color(args.payload, "blue"), "=>", c_payload)
+    print(f"\n[*]", put_color(args.payload, "blue"), "=>", c_payload)
