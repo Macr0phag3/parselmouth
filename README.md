@@ -95,6 +95,7 @@ print(status, c_result, result)
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过|
 | Bypass_Attribute    | by_getattr   | `str.find` | `vars(str)["find"]` | vars 绕过|
+| Bypass_Attribute    | by_getattr   | `str.find` | `str.__dict__["find"]` | `__dict__` 绕过|
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
@@ -126,8 +127,8 @@ print(status, c_result, result)
 - [x] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)` [@chi111i](https://github.com/chi111i)
 - [x] `__import__` -> `getattr(__builtins__, "__import__")` [@chi111i](https://github.com/chi111i)
 - [ ] `__import__` -> `__loader__().load_module`
-- [x] `str.find` -> `vars(str)["find"]`
-- [ ] `str.find` -> `str.__dict__["find"]`  # 注意基础类型 或者 自定义 `__slots__` 没有 `__dict__` 属性
+- [x] `str.find` -> `vars(str)["find"]`  # 注意基础类型 或者 自定义 `__slots__` 没有 `__dict__` 属性
+- [x] `str.find` -> `str.__dict__["find"]`  # 注意基础类型 或者 自定义 `__slots__` 没有 `__dict__` 属性
 - [ ] `",".join("123")` -> `"".__class__.join(",", "123")`
 - [ ] `",".join("123")` -> `str.join(",", "123")`
 - [ ] `"123"[0]` -> `"123".__getitem__(0)`

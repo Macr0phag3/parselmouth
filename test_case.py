@@ -211,6 +211,15 @@ def test_Attribute():
 
     >>> _test("by_vars", "os.system", [".", ], "\\.")
     vars(os)['system']
+
+    >>> _test("by_vars", "(1+1).system", [".", ], "\\.")
+    (1+1).system
+
+    >>> _test("by_dict_attr", "os.system", [".system", ], "\\.system")
+    os.__dict__['system']
+
+    >>> _test("by_dict_attr", "(1+1).system", [".", ], "\\.")
+    (1+1).system
     """
 
 

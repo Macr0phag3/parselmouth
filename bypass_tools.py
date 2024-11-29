@@ -586,6 +586,23 @@ class Bypass_Attribute(_Bypass):
         else:
             return None
 
+    @recursion_protect
+    def by_dict_attr(self):
+        """
+        str.find => str.__dict__["find"]
+        """
+        # 注意
+        # vars(bytes([111,115]))
+        # vars(1+1)
+        # 之类，是不行的，以为基础类型没有 __dict__
+        # 因此保险起见，这里适用类型还是用白名单吧
+        if type(self.node._value[0]) in (ast.Name,):
+            return self.P9H(
+                f"{self.P9H(self.node._value[0]).visit()}.__dict__[{repr(self.node._value[1])}]",
+            ).visit()
+        else:
+            return None
+
 
 class Bypass_Call(_Bypass):
     pass
