@@ -574,10 +574,17 @@ class Bypass_Attribute(_Bypass):
         """
         str.find => vars(str)["find"]
         """
-
-        return self.P9H(
-            f"vars({self.P9H(self.node._value[0]).visit()})[{repr(self.node._value[1])}]",
-        ).visit()
+        # 注意
+        # vars(bytes([111,115]))
+        # vars(1+1)
+        # 之类，是不行的，以为基础类型没有 __dict__
+        # 因此保险起见，这里适用类型还是用白名单吧
+        if type(self.node._value[0]) in (ast.Name,):
+            return self.P9H(
+                f"vars({self.P9H(self.node._value[0]).visit()})[{repr(self.node._value[1])}]",
+            ).visit()
+        else:
+            return None
 
 
 class Bypass_Call(_Bypass):
