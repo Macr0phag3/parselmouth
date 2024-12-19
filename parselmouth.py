@@ -587,7 +587,7 @@ if __name__ == "__main__":
 
     try:
         specify_bypass_map = json.loads(args.specify_bypass)
-        assert "white" in specify_bypass_map or "black" in specify_bypass_map
+        assert not specify_bypass_map or "white" in specify_bypass_map or "black" in specify_bypass_map
         assert all(
             [
                 type(list(j.items())[0][1]) is list
