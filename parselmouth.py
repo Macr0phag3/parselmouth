@@ -611,20 +611,21 @@ if __name__ == "__main__":
     print(f"[*] versbose: {put_color(args.v, 'white')}")
     print(put_color("\n[*] hacking....\n", "green"))
 
-    try:
-        re.compile(args.re_rule)
-    except Exception:
-        sys.exit(put_color("[x] --re-rule regex is invalid", "red"))
+    if args.re_rule:
+        try:
+            re.compile(args.re_rule)
+        except Exception:
+            sys.exit(put_color("[x] --re-rule regex is invalid", "red"))
 
-    if re.findall(args.re_rule, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"):
-        print(
-            put_color(
-                "[!] regex can match unicode numbers, use `\d` carefully", "yellow"
+        if re.findall(args.re_rule, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"):
+            print(
+                put_color(
+                    "[!] regex can match unicode numbers, use `\d` carefully", "yellow"
+                )
             )
-        )
 
-    if re.findall(args.re_rule, "ᑐ ᑌ ᑎ ᕮ"):
-        print(put_color("[!] regex is toooooo broad", "yellow"))
+        if re.findall(args.re_rule, "ᑐ ᑌ ᑎ ᕮ"):
+            print(put_color("[!] regex is toooooo broad", "yellow"))
 
     BLACK_CHAR = {"kwd": args.rule, "re_kwd": args.re_rule}
     p9h = P9H(
