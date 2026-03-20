@@ -78,8 +78,7 @@ print(status, c_result, result)
 | Bypass_String    | by_char   | `"macr0phag3"` |  `(chr(109) + chr(97) + chr(99) + chr(114) + chr(48) + chr(112) + chr(104) + chr(97) + chr(103) + chr(51))`   | char 绕过字符限制|
 | Bypass_String    | by_dict   | `"macr0phag3"` | `list(dict(amacr0phag3=()))[0][1:]`  | dict 绕过限制|
 | Bypass_String    | by_bytes_single   | `"macr0phag3"` | `str(bytes([109]))[2] + str(bytes([97]))[2] + str(bytes([99]))[2] + str(bytes([114]))[2] + str(bytes([48]))[2] + str(bytes([112]))[2] + str(bytes([104]))[2] + str(bytes([97]))[2] + str(bytes([103]))[2] + str(bytes([51]))[2]`  | bytes 绕过限制|
-| Bypass_String    | by_bytes_full   | `"macr0phag3"` | `bytes([109, 97, 99, 114, 48, 112, 104, 97, 103, 51])`  | bytes 绕过限制 2 |
-| Bypass_String    | by_join_map_str   | `"macr0phag3"` | `str().join(map(chr, [109, 97, 99, 114, 48, 112, 104, 97, 103, 51]))`  | join 绕过限制 |
+| Bypass_String    | by_bytes_full   | `"macr0phag3"` | `bytes([109, 97, 99, 114, 48, 112, 104, 97, 103, 51]).decode()`  | bytes 绕过限制 2 |
 | Bypass_String    | by_format   | `"macr0phag3"` | `'{}{}{}{}{}{}{}{}{}{}'.format(chr(109), chr(97), chr(99), chr(114), chr(48), chr(112), chr(104), chr(97), chr(103), chr(51))`  | format 绕过限制 |
 | Bypass_String    | by_hex_encode   | `"macr0phag3"` | `"\x6d\x61\x63\x72\x30\x70\x68\x61\x67\x33"`  | hex 编码绕过限制 |
 | Bypass_String    | by_unicode_encode   | `"macr0phag3"` | `"\u006d\u0061\u0063\u0072\u0030\u0070\u0068\u0061\u0067\u0033"`  | unicode 编码绕过限制 |
@@ -94,8 +93,8 @@ print(status, c_result, result)
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过|
-| Bypass_Attribute    | by_getattr   | `str.find` | `vars(str)["find"]` | vars 绕过|
-| Bypass_Attribute    | by_getattr   | `str.find` | `str.__dict__["find"]` | `__dict__` 绕过|
+| Bypass_Attribute    | by_vars   | `str.find` | `vars(str)["find"]` | vars 绕过|
+| Bypass_Attribute    | by_dict_attr   | `str.find` | `str.__dict__["find"]` | `__dict__` 绕过|
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
