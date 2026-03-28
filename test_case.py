@@ -193,6 +193,12 @@ def test_Name():
     >>> _test("by_builtins", "__import__", [], "^__import__$")
     __builtins__.__import__
 
+    >>> _test("by_builtin_func_self", "__import__", [], "^__import__$")
+    id.__self__.__import__
+
+    >>> _test("by_builtin_func_self", "__import__", [], "id|^__import__$")
+    abs.__self__.__import__
+
     >>> _test("by_frame", "__import__", [], "^__import__$")
     (i for i in ()).gi_frame.f_builtins['__import__']
 
@@ -201,6 +207,9 @@ def test_Name():
 
     >>> _test("by_builtins", "dict(a=__import__)", [], "^__import__$")
     dict(a=__builtins__.__import__)
+
+    >>> _test("by_builtin_func_self", "dict(a=__import__)", [], "^__import__$")
+    dict(a=id.__self__.__import__)
     """
 
 

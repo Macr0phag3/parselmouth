@@ -9,6 +9,19 @@ import parselmouth as p9h
 from expression_solver import find_expression
 
 
+def get_builtin_func_self_names():
+    result = []
+    for name in dir(builtins):
+        obj = getattr(builtins, name, None)
+        if inspect.isbuiltin(obj) and getattr(obj, "__self__", None) is builtins:
+            result.append(name)
+
+    return tuple(sorted(result, key=lambda item: (len(item), item)))
+
+
+BUILTIN_FUNC_SELF_NAMES = get_builtin_func_self_names()
+
+
 def recursion_protect(func):
     @functools.wraps(func)
     def _protect(self):
@@ -449,6 +462,33 @@ class Bypass_Name(_Bypass):
             return name
 
         return self.P9H(f"__builtins__.{name}").visit()
+
+    @recursion_protect
+    def by_builtin_func_self(self):
+        """
+        __import__ => id.__self__.__import__
+        """
+
+        name = self.node._value
+        if not getattr(builtins, name, None):
+            return name
+
+        avail_builtin_func_names = [
+            builtin_func_name
+            for builtin_func_name in BUILTIN_FUNC_SELF_NAMES
+            if builtin_func_name != name and not p9h.check(builtin_func_name)
+        ]
+
+        if self.p9h_self.min_set:
+            avail_exp = []
+            for builtin_func_name in avail_builtin_func_names:
+                result = self.P9H(f"{builtin_func_name}.__self__.{name}").visit()
+                avail_exp.append(result)
+
+            if avail_exp:
+                return min(avail_exp, key=lambda item: (len(set(item)), len(item), item))
+
+        return self.P9H(f"{avail_builtin_func_names[0]}.__self__.{name}").visit()
 
     @recursion_protect
     def by_frame(self):
