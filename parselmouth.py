@@ -620,7 +620,7 @@ if __name__ == "__main__":
         if re.findall(args.re_rule, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"):
             print(
                 put_color(
-                    "[!] regex can match unicode numbers, use `\d` carefully", "yellow"
+                    "[!] regex can match unicode numbers, use `\\d` carefully", "yellow"
                 )
             )
 

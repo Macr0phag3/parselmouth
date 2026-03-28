@@ -557,6 +557,12 @@ class Bypass_Name(_Bypass):
 
         return self.P9H(f"__builtins__.{name}").visit()
 
+    def by_frame(self):
+        name = self.node._value
+        if not getattr(builtins, name, None):
+            return name
+
+        return self.P9H(f"(i for i in ()).gi_frame.f_builtins[{repr(name)}]").visit()
 
 class Bypass_Attribute(_Bypass):
     def __init__(self, *args, **kwargs):
