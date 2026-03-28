@@ -1,4 +1,3 @@
-import operator
 import ast
 import string
 import inspect
@@ -6,9 +5,8 @@ import functools
 import copy
 import builtins
 
-import sympy  # type: ignore
-
 import parselmouth as p9h
+from expression_solver import find_expression
 
 
 def recursion_protect(func):
@@ -154,162 +152,57 @@ class Bypass_Int(_Bypass):
 
     @recursion_protect
     def by_cal(self):
-        def _calculate(target, old_expr):
-            stacks = [i[2]["target"] for i in get_stack() if i[1] == "_calculate"][1:]
-            if target in stacks or target in can_not_cal:
-                return None
-
-            if set(str(target)).issubset(single_valid_num) and not p9h.check(
-                target, ignore_space=True
-            ):
-                return f"{old_expr}x{target}"
-
-            first = not bool(old_expr)
-
-            for op in ops:
-                for left in _valid_num:
-                    n_left = eval(left)
-                    left = "x" + left if n_left else left
-                    for right in _valid_num:
-                        n_right = eval(right)
-                        right = "x" + right
-
-                        v = ops[op](n_left, n_right)
-
-                        if v == n_left:
-                            continue
-
-                        if v == target:
-                            # print(f"{old_expr}{left}{op}{right}")
-                            return f"{old_expr}{left}{op}{right}"
-
-                        if first:
-                            _old_expr = f"({left}{op}{right})"
-                            if v in valid_num_map:
-                                _old_expr = "x" + valid_num_map[v]
-                        else:
-                            _old_expr = old_expr + f"{left}{op}{right}"
-                            if v in valid_num_map:
-                                _old_expr = old_expr + "x" + valid_num_map[v]
-
-                        if abs(v - target) > abs(n_left - target):
-                            # print(f"  - 显然，经过运算，相比 left={left} 距离目标更远了，算式无效")
-                            continue
-
-                        # print(
-                        #     "\n[*] 选中表达式:",
-                        #     f"{left}{op}{right}",
-                        # )
-                        # print(" 新一轮", target, f"{left}{op}{right}={v}", old_expr)
-                        # # input()
-
-                        for new_op in ops:
-                            # print(f"  - 尝试运算符 {new_op}")
-                            if new_op == "-":
-                                # print("    - 求", f"{left}{op}{right} - n == {target} ?")
-                                if v <= 0 or abs(n_left - target) > abs(
-                                    target - v - n_left
-                                ):
-                                    # print(stacks)
-                                    # print(f"    - 会爆栈，不用这个运算符了 {new_op}, v={v}, target={target}")
-                                    continue
-
-                                result = _calculate(v - target, _old_expr + "-(")
-                                if result is None:
-                                    continue
-
-                                return result + ")"
-
-                            elif new_op == "+":
-                                # print("    - 求", f"{left}{op}{right} + n == {target} ?")
-                                if abs(n_left - target) < abs(target - v - n_left):
-                                    # print(stacks)
-                                    # print(f"    - 会爆栈，不用这个运算符了 {new_op}, v={v}, target={target}")
-                                    continue
-
-                                result = _calculate(target - v, _old_expr + "+")
-                                if result is None:
-                                    continue
-
-                                return result
-
-                            elif new_op == "*":
-                                # print("    - 在 * 里面")
-                                if v == 0:
-                                    continue
-
-                                times, mod = divmod(target, v)
-                                if times in [0, 1]:
-                                    continue
-
-                                if v in [1]:
-                                    continue
-
-                                if abs(times * v) > target:
-                                    continue
-
-                                if mod == 0:
-                                    mod_expr = ""
-                                else:
-                                    _mod = _calculate(mod, "")
-                                    if _mod is None:
-                                        continue
-                                    mod_expr = ["+", "-"][mod <= 0] + _mod
-
-                                times_expr = _calculate(times, "")
-                                if times_expr is None:
-                                    continue
-
-                                if len(times_expr) > 1:
-                                    times_expr = f"({times_expr})"
-
-                                return f"{_old_expr}*{times_expr}{mod_expr}"
-                            else:
-                                # print("运算符未定义")
-                                continue
-
-            can_not_cal.append(target)
-            return None
-
-        _ops = {
-            "**": operator.pow,
-            "*": operator.mul,
-            "+": operator.add,
-            "-": operator.sub,
-        }
-
-        ops = {op: fn for op, fn in _ops.items() if not p9h.check(op)}
-
-        target = self.node._value
-        single_valid_num = {
-            str(i) for i in range(10) if not p9h.check(i, ignore_space=True)
-        }
-        _valid_num = self.valid_num[:]
-        valid_num_map = dict(zip(map(int, map(eval, _valid_num)), _valid_num))
-        # print(_valid_num, valid_num_map)
-        can_not_cal = []
-        try:
-            result = _calculate(target, "")
-            # print(result)
-        except RecursionError:
-            print(f"\n[x] 爆栈了: calculate, {target}, {ops}, {self.valid_num}")
-            __import__("sys").exit(1)
-
-        if result is not None:
+        time_budget = 2.5 if self.p9h_self.min_len else 1.5
+        atom_map = {}
+        digit_atoms = []
+        operators = [op for op in ("**", "*", "+", "-") if not p9h.check(op)]
+        allow_parentheses = not p9h.check("(") and not p9h.check(")")
+        for atom in self.valid_num:
             try:
-                _result = str(sympy.simplify(result)).replace("x", "")
-            except Exception as e:
-                # print(f"[DEBUG] sympy simplify error: {e}")
-                pass
-            else:
-                if not p9h.check(_result, ignore_space=True):
-                    return self.P9H(_result).visit()
+                text = ast.unparse(ast.parse(atom, mode="eval"))
+            except Exception:
+                text = atom.replace(" ", "")
 
-            return self.P9H(result.replace("x", "")).visit()
+            if p9h.check(text, ignore_space=True):
+                continue
 
-        else:
-            # print(f"[DEBUG] Calculation failed for target: {target}")
-            return str(self.node._value)
+            value = eval(atom)
+            if isinstance(value, bool):
+                value = int(value)
+
+            current = atom_map.get(value)
+            if current is None or len(text) < len(current):
+                atom_map[value] = text
+
+            if text.isdigit() and len(text) == 1:
+                digit_atoms.append(text)
+
+        for i in digit_atoms:
+            for j in digit_atoms:
+                for k in ["", *digit_atoms]:
+                    text = f"{i}{j}{k}"
+                    if len(text) > 1 and text[0] == "0":
+                        continue
+                    if p9h.check(text, ignore_space=True):
+                        continue
+
+                    value = int(text)
+                    current = atom_map.get(value)
+                    if current is None or len(text) < len(current):
+                        atom_map[value] = text
+
+        result = find_expression(
+            atoms=[(text, value) for value, text in atom_map.items()],
+            operators=operators,
+            target=self.node._value,
+            allow_parentheses=allow_parentheses,
+            shortest=self.p9h_self.min_len,
+            max_depth=4,
+            time_budget=time_budget,
+        )
+        if result is not None:
+            return self.P9H(result).visit()
+        return str(self.node._value)
 
     @recursion_protect
     def by_ord(self):

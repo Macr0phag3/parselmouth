@@ -569,14 +569,14 @@ if __name__ == "__main__":
         default="{}",
         help='eg. {"white": {"Bypass_String": ["by_dict"]}, "black": []}',
     )
-    parser.add_argument("--minlen", action="store_true", help="found shortest exp")
+    parser.add_argument("--shortest", action="store_true", help="found shortest exp")
     parser.add_argument(
         "--minset", action="store_true", help="found minimal character set exp"
     )
     args = parser.parse_args()
 
-    if args.minlen and args.minset:
-        sys.exit(put_color("[x] --minlen or --minset, not both", "red"))
+    if args.shortest and args.minset:
+        sys.exit(put_color("[x] --shortest or --minset, not both", "red"))
 
     print(f"[*] payload: {put_color(args.payload, 'blue')}")
     print(
@@ -604,9 +604,9 @@ if __name__ == "__main__":
         )
 
     print(f"[*] specify bypass map: {specify_bypass_map}")
-    if args.minlen or args.minset:
+    if args.shortest or args.minset:
         print(
-            f"[*] min type: {put_color(['shortest', 'minimal char set'][args.minlen or args.minset], 'white')}"
+            f"[*] min type: {put_color('shortest' if args.shortest else 'minimal char set', 'white')}"
         )
     print(f"[*] versbose: {put_color(args.v, 'white')}")
     print(put_color("\n[*] hacking....\n", "green"))
@@ -632,7 +632,7 @@ if __name__ == "__main__":
         args.payload,
         versbose=args.v,
         specify_bypass_map=specify_bypass_map,
-        min_len=args.minlen,
+        min_len=args.shortest,
         min_set=args.minset,
     )
     start_ts = time.time()
@@ -664,7 +664,10 @@ if __name__ == "__main__":
             if func not in used_func[cls]:
                 used_func[cls].append(func)
 
-    for cls in used_func:
-        print(f"  [-] {put_color(cls, 'cyan')}: {put_color(used_func[cls], 'blue')}")
+    if not used_func:
+        print(f"  [-] {put_color('None', 'gray')}")
+    else:
+        for cls in used_func:
+            print(f"  [-] {put_color(cls, 'cyan')}: {put_color(used_func[cls], 'blue')}")
 
     print(f"\n[*]", put_color(args.payload, "blue"), "=>", c_payload)
