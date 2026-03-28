@@ -545,7 +545,7 @@ logo = (
     put_color(
         """   ▏ ▏  \n"""
         """ (o  O) \n"""
-        """  \__/  {}\n"""
+        """  \\__/  {}\n"""
         """   ▕    {}\n""",
         "green",
     ).replace("▕", put_color("▕", "red"))
@@ -556,7 +556,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="parselmouth, automated python sandbox escape payload bypass framework"
     )
-    parser.add_argument("--payload", help="bypass rule")
+    parser.add_argument("--payload", required=True, help="bypass rule")
     parser.add_argument("-v", action="count", default=0, help="verbose level")
     parser.add_argument("--re-rule", default="", help="rule in regex")
     parser.add_argument("--rule", nargs="+", default="", help="rules")
