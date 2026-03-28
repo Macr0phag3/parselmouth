@@ -11,16 +11,13 @@ import bypass_tools
 
 
 def put_color(string, color, bold=True):
-    """
-    give me some color to see :P
-    """
-
-    if color == "gray":
-        COLOR = Style.DIM + Fore.WHITE
+    if color == 'gray':
+        COLOR = Fore.LIGHTBLACK_EX
     else:
         COLOR = getattr(Fore, color.upper(), "WHITE")
 
-    return f'{Style.BRIGHT if bold else ""}{COLOR}{str(string)}{Style.RESET_ALL}'
+    style = Style.BRIGHT if bold and color != 'gray' else ""
+    return f'{style}{COLOR}{str(string)}{Style.RESET_ALL}'
 
 
 def color_check(result):
@@ -545,15 +542,14 @@ BLACK_CHAR = {}
 FORMAT_SPACE = None
 
 logo = (
-    """\n"""
-    """    _/_/_/      _/_/    _/    _/\n"""
-    """   _/    _/  _/    _/  _/    _/\n"""
-    """  _/_/_/      _/_/_/  _/_/_/_/\n"""
-    """ _/              _/  _/    _/\n"""
-    """_/        _/_/_/    _/    _/\n""".replace("/", put_color("/", "green")).replace(
-        "_", put_color("_", "cyan")
-    )
-)
+    put_color(
+        """   ▏ ▏  \n"""
+        """ (o  O) \n"""
+        """  \__/  {}\n"""
+        """   ▕    {}\n""",
+        "green",
+    ).replace("▕", put_color("▕", "red"))
+).format(put_color("parselmouth", "gray"), put_color("v2.0", "cyan"))
 
 if __name__ == "__main__":
     print(logo)
