@@ -122,7 +122,6 @@ def check(payload, ignore_space=False):
 In real targets, payload validation often has to be done through HTTP requests. In that case, you can directly replace the global `p9h.check` and use the remote target as an oracle:
 
 ```python
-import ast
 import time
 
 import requests

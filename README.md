@@ -120,7 +120,6 @@ def check(payload, ignore_space=False):
 但在真实场景里，payload 往往需要通过网络请求去验证。比如目标是一个 web 应用，此时可以直接改写全局的 `p9h.check`，把目标服务当成 oracle：
 
 ```python
-import ast
 import time
 
 import requests
