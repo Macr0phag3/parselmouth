@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import parselmouth as p9h
 
-PAYLOAD = "__import__('os').system('id')"
+PAYLOAD = "help.__repr__.__globals__['sys'].modules['os'].__dict__['system']('id')"
 
 def challenge_check(payload, ignore_space=False):
     result = subprocess.run(
@@ -21,6 +21,7 @@ def challenge_check(payload, ignore_space=False):
         return ["blocked"]
 
     return []
+
 
 p9h.check = challenge_check
 runner = p9h.P9H(
