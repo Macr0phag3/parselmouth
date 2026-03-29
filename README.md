@@ -99,6 +99,10 @@ print(status, c_result, result)
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
+| Bypass_Call    | by_builtin_func_self / by_getattr / by_vars ...   | `__import__('os')` / `os.system(1)` | `id.__self__.__import__('os')` / `vars(os)['system'](1)` | 动态包装被调用对象对应的 bypass，再统一交给 `try_bypass` 选择 |
+
+|  类   |   方法名  | payload | bypass | 解释说明 |
+| ----- | -------- | ------- | ------- | ----- |
 | Bypass_Keyword    | by_unicode   | `str(object=1)` | `str(ᵒbject=1)` | unicode 绕过|
 
 |  类   |   方法名  | payload | bypass | 解释说明 |

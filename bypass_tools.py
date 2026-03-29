@@ -4,6 +4,7 @@ import inspect
 import functools
 import copy
 import builtins
+import types
 
 import parselmouth as p9h
 from expression_solver import find_expression
@@ -24,9 +25,9 @@ BUILTIN_FUNC_SELF_NAMES = get_builtin_func_self_names()
 
 def recursion_protect(func):
     @functools.wraps(func)
-    def _protect(self):
+    def _protect(self, __func_name=func.__name__):
         stack = []
-        ns = get_stack()
+        ns = get_stack()[2:]
         # print(len(ns))
         # print(
         #     [
@@ -37,13 +38,23 @@ def recursion_protect(func):
         # )
         # print([(i[0] + "." + i[1]) for i in get_stack()])
         for s in ns:
-            if not s[1].startswith("by_"):
+            frame_func_name = s[2].get("__func_name", s[1])
+            if not frame_func_name.startswith("by_"):
                 continue
 
-            stack.append((s[0], s[1], s[2]["self"].node._value))
+            if "self" not in s[2]:
+                continue
 
-        var = self.node._value
-        if (self.__class__.__name__, func.__name__, var) in stack:
+            stack.append(
+                (
+                    s[0],
+                    frame_func_name,
+                    ast.dump(s[2]["self"].node, include_attributes=False),
+                )
+            )
+
+        var = ast.dump(self.node, include_attributes=False)
+        if (self.__class__.__name__, __func_name, var) in stack:
             # 本轮调用的 函数+参数 在调用链之前就出现过
             # 说明不同的 bypass 函数之间出现了循环依赖
             # 这个时候应该舍弃掉这个 bypass 函数
@@ -479,6 +490,7 @@ class Bypass_Name(_Bypass):
             if builtin_func_name != name and not p9h.check(builtin_func_name)
         ]
 
+        # 下沉最小长度的判定逻辑
         if self.p9h_self.min_set:
             avail_exp = []
             for builtin_func_name in avail_builtin_func_names:
@@ -545,7 +557,68 @@ class Bypass_Attribute(_Bypass):
 
 
 class Bypass_Call(_Bypass):
-    pass
+    """
+    Bypass_Call 的 by_ 函数是动态生成的
+    因此与 Bypass_Name/Bypass_Attribute 的 by_ 函数一致
+    """
+
+    @classmethod
+    def dynamic_func_names(cls):
+        result = []
+        for sub_cls in (Bypass_Name, Bypass_Attribute):
+            for func_name in sub_cls.__dict__:
+                if func_name.startswith("by_") and func_name not in result:
+                    result.append(func_name)
+
+        return tuple(result)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 统一成 (被调用对象, 位置参数, 关键字参数) 结构，方便后续不同 bypass 复用
+        self.node._value = (
+            getattr(self.node, "func"),
+            getattr(self.node, "args"),
+            getattr(self.node, "keywords"),
+        )
+
+    def _sub_bypass(self):
+        # Call 本身不直接发明 payload，而是把 () 前面的被调用对象
+        # 交给对应的 Name/Attribute bypass 去产出候选写法
+        func_node = self.node._value[0]
+        bypass_cls = {
+            ast.Name: Bypass_Name,
+            ast.Attribute: Bypass_Attribute,
+        }.get(type(func_node))
+        if bypass_cls is None:
+            return
+
+        bypass_ins = bypass_cls(p9h.BLACK_CHAR, func_node, self.p9h_self)
+        yield from bypass_ins.get_map().items()
+
+    def _wrapper(self, func_name, method):
+        def _dynamic_wrapper(_self):
+            func_candidate = method()
+            if func_candidate is None:
+                # 说明该绕过不适用
+                return None
+
+            # 参数和关键字参数也直接递归走 P9H，避免 ast.unparse 把子节点绕过结果回退掉
+            call_args = [_self.P9H(arg).visit() for arg in _self.node._value[1]]
+            call_args.extend(
+                _self.P9H(keyword).visit() for keyword in _self.node._value[2]
+            )
+            return f"{func_candidate}({','.join(call_args)})"
+
+        _dynamic_wrapper.__name__ = func_name
+        _dynamic_wrapper.__qualname__ = f"{self.__class__.__name__}.{func_name}"
+        _dynamic_wrapper = recursion_protect(_dynamic_wrapper)
+        return types.MethodType(_dynamic_wrapper, self)
+
+    def get_map(self):
+        return {
+            func_name: self._wrapper(func_name, method)
+            for func_name, method in self._sub_bypass()
+        }
 
 
 class Bypass_Keyword(_Bypass):

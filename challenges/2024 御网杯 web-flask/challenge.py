@@ -1,5 +1,4 @@
 from flask import Flask, request, Response
-import random
 import re
 
 app = Flask(__name__)

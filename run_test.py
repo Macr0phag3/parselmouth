@@ -60,6 +60,7 @@ for test in tests[::-1]:
         ans = case.want.strip()
         case = ast.parse(case.source).body
         args = case[-1].value.args
+
         if isinstance(case[0], ast.Assign):
             bypass_map = ast.unparse(case[0].value)
         else:

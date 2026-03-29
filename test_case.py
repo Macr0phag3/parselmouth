@@ -224,12 +224,14 @@ def test_Attribute():
     >>> _test("by_vars", "os.system", [".", ], r"\\.")
     vars(os)['system']
 
+    # ----- 无法进行 bypass -----
     >>> _test("by_vars", "(1+1).system", [".", ], r"\\.")
     (1+1).system
 
     >>> _test("by_dict_attr", "os.system", [".system", ], r"\\.system")
     os.__dict__['system']
 
+    # ----- 无法进行 bypass -----
     >>> _test("by_dict_attr", "(1+1).system", [".", ], r"\\.")
     (1+1).system
     """
@@ -243,7 +245,7 @@ def test_Keyword():
     >>> _test("by_unicode", "dict(abc=1)", ["abc", ], "abc")
     dict(𝒂bc=1)
 
-    # ----- 不能进行 bypass -----
+    # ----- 无法进行 bypass -----
     >>> _test("by_unicode", "dict(__import__=1)", ["imp", "𝒊"], "imp|𝒊")
     dict(__import__=1)
     """
@@ -333,6 +335,16 @@ def test_Combo():
 
     >>> maps = {"Bypass_Attribute": ["by_vars"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
     vars(os)[max(dict(𝒔ystem=()))]
+
+    >>> # ----- Call -----
+    >>> maps = {"Bypass_Call": ["by_builtin_func_self"]}; _test(..., "__import__('os')", [], "^__import__[(]", maps=maps)
+    id.__self__.__import__('os')
+
+    >>> maps = {"Bypass_Call": ["by_vars"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system(1)", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
+    vars(os)[max(dict(𝒔ystem=()))](1)
+
+    >>> maps = {"Bypass_Call": ["by_unicode"]}; _test(..., "id('x')", ["id"], r"id", maps=maps)
+    𝒊d('x')
 
     >>> # ----- Name -----
     >>> maps = {"Bypass_Name": ["by_builtins"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)

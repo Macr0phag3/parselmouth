@@ -112,7 +112,10 @@ class P9H(ast._Unparser):
                         )
 
                     func = vars(cls).get(func_name, None)
-                    if not func:
+                    if not func and not (
+                        hasattr(cls, "dynamic_func_names")
+                        and func_name in cls.dynamic_func_names()
+                    ):
                         sys.exit(
                             put_color(
                                 f"[x] bypass func not found: {func_name} in {cls_name}",
