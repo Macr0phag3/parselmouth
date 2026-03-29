@@ -129,9 +129,6 @@ import parselmouth as p9h
 
 
 def check(payload, ignore_space=False):
-    if isinstance(payload, ast.AST):
-        payload = ast.unparse(payload)
-
     result = requests.post(
         "http://127.0.0.1:5000/challenge",
         json={"exp": payload},
@@ -147,14 +144,17 @@ p9h.check = check
 runner = p9h.P9H("__import__('os').popen('whoami').read()", versbose=2)
 result = runner.visit()
 status, c_result = p9h.color_check(result)
-print(status, c_result, result)
+if status:
+    print("bypass success")
+    print("payload:", runner.source_code)
+    print("exp:", result)
 ```
 
 这个 `check` 需要遵守一个简单约定：
 - 检查通过时返回空列表 `[]`
 - 检查不通过时返回非空列表；最好把命中的关键字放进去，如果实在拿不到，返回任意非空列表也可以
 
-下面给一个最小的 flask 测试服务例子：
+下面给一个最小的 flask 搭配测试服务的例子：
 
 ```python
 from flask import Flask, jsonify, request

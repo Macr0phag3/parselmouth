@@ -131,9 +131,6 @@ import parselmouth as p9h
 
 
 def check(payload, ignore_space=False):
-    if isinstance(payload, ast.AST):
-        payload = ast.unparse(payload)
-
     result = requests.post(
         "http://127.0.0.1:5000/challenge",
         json={"exp": payload},
@@ -149,14 +146,17 @@ p9h.check = check
 runner = p9h.P9H("__import__('os').popen('whoami').read()", versbose=2)
 result = runner.visit()
 status, c_result = p9h.color_check(result)
-print(status, c_result, result)
+if status:
+    print("bypass success")
+    print("payload:", runner.source_code)
+    print("exp:", result)
 ```
 
 This `check` function only needs to follow one convention:
 - Return `[]` when the payload passes.
 - Return a non-empty list when it fails. Returning the matched blocked strings is best, but any non-empty list is acceptable if that is all you can extract.
 
-Here is a minimal Flask service for local testing:
+Here is a minimal Flask-based test service example:
 
 ```python
 from flask import Flask, jsonify, request
