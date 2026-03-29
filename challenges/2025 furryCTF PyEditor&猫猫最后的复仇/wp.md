@@ -1,4 +1,3 @@
-先安装本目录里的 [requirements.txt](/Users/macr0phag3/Github/parselmouth/challenges/2026%20Typhon%20issue17%20ast-only/requirements.txt)。
 
 这题需要把题目的 `validate_code()` 接到 `p9h.check`，因为它不是简单的字符串黑名单，而是 AST 级别的调用限制：
 

@@ -461,18 +461,22 @@ class Bypass_Name(_Bypass):
         return _result
 
     @recursion_protect
-    def by_builtins(self):
+    def by_builtins_attr(self):
         """
         __import__ => __builtins__.__import__
         """
 
         name = self.node._value
-        # 注意这里不能使用  getattr(__builtins__, func_name, None)
-        # 因为本文件是要被 import 的，此时 __builtins__ 会变成字典
-        if not getattr(builtins, name, None):
-            return name
-
         return self.P9H(f"__builtins__.{name}").visit()
+
+    @recursion_protect
+    def by_builtins_item(self):
+        """
+        __import__ => __builtins__['__import__']
+        """
+
+        name = self.node._value
+        return self.P9H(f"__builtins__[{repr(name)}]").visit()
 
     @recursion_protect
     def by_builtin_func_self(self):
@@ -481,7 +485,7 @@ class Bypass_Name(_Bypass):
         """
 
         name = self.node._value
-        if not getattr(builtins, name, None):
+        if not hasattr(builtins, name):
             return name
 
         avail_builtin_func_names = [
@@ -505,7 +509,7 @@ class Bypass_Name(_Bypass):
     @recursion_protect
     def by_frame(self):
         name = self.node._value
-        if not getattr(builtins, name, None):
+        if not hasattr(builtins, name):
             return name
 
         return self.P9H(f"(i for i in ()).gi_frame.f_builtins[{repr(name)}]").visit()

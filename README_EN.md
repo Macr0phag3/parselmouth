@@ -213,7 +213,8 @@ Currently supported:
 | Class | Method | Payload | Bypass | Notes |
 | ----- | ------ | ------- | ------ | ----- |
 | Bypass_Name | by_unicode | `__import__` | `_＿import_＿` | unicode bypass |
-| Bypass_Name | by_builtins | `__import__` | `__builtins__.__import__` | fetch the name from builtins |
+| Bypass_Name | by_builtins_attr | `__import__` | `__builtins__.__import__` | fetch the name from module-shaped `__builtins__` |
+| Bypass_Name | by_builtins_item | `__import__` | `__builtins__['__import__']` | fetch the name from dict-shaped `__builtins__` |
 | Bypass_Name | by_builtin_func_self | `__import__` | `id.__self__.__import__` | reach builtins through any available `builtin_function_or_method.__self__` |
 | Bypass_Name | by_frame | `__import__` | `(i for i in ()).gi_frame.f_builtins['__import__']` | fetch the name through generator-frame `f_builtins` |
 

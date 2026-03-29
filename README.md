@@ -211,7 +211,8 @@ if __name__ == "__main__":
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Name    | by_unicode   | `__import__` | `_＿import_＿` | unicode 绕过|
-| Bypass_Name    | by_builtins   | `__import__` | `__builtins__.__import__` | 从 builtins 获取 name |
+| Bypass_Name    | by_builtins_attr   | `__import__` | `__builtins__.__import__` | 从模块形态的 `__builtins__` 获取 name |
+| Bypass_Name    | by_builtins_item   | `__import__` | `__builtins__['__import__']` | 从字典形态的 `__builtins__` 获取 name |
 | Bypass_Name    | by_builtin_func_self   | `__import__` | `id.__self__.__import__` | 通过任意 `builtin_function_or_method.__self__` 拿到 builtins，自动选择可用入口 |
 | Bypass_Name    | by_frame   | `__import__` | `(i for i in ()).gi_frame.f_builtins['__import__']` | 通过生成器 frame 的 `f_builtins` 获取 name |
 
@@ -256,6 +257,7 @@ if __name__ == "__main__":
 - [ ] `1` -> `int(max(max(dict(a၁=()))))`
 - [ ] `[i for i in range(10) if i == 5]` -> `[[i][0]for(i)in(range(10))if(i)==5]`
 - [ ] `==` -> `in`
+- [ ] 必要的空格 -> `\t`/...
 - [ ] ~~`True or False` -> `bool(- (True) - (False))`~~ 感觉不实用
 - [ ] `[2, 20, 30]` -> `[i for i in range(31) for j in range(31) if i==0 and j == 2 or i == 1 and j ==20 or i == 2 and j == 30]`
 

