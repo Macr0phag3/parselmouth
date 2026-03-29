@@ -4,6 +4,7 @@ import re
 import sys
 import argparse
 import time
+import functools
 
 from colorama import Fore, Style
 
@@ -32,28 +33,65 @@ def color_check(result):
     return not bool(hited_chr), c_result
 
 
-def check(payload, ignore_space=False):
-    if isinstance(payload, ast.AST):
-        payload = ast.unparse(payload)
+def cache_check_func(func, maxsize=99999, extra_key_func=None):
+    # 为 check 函数统一加缓存：
+    # 1. 先把 AST 归一化成源码字符串，避免按对象身份缓存
+    # 2. extra_key_func 可把规则等外部状态并入缓存 key，防止一个 P9H 实例多次使用串缓存
+    # 3. 既用于内置 check，也自动用于用户 monkeypatch 的 challenge_check
+    @functools.lru_cache(maxsize=maxsize)
+    def _cached(payload, ignore_space, extra_key):
+        result = func(payload, ignore_space)
+        if result is None:
+            return ()
 
-    if not BLACK_CHAR.get("kwd") and not BLACK_CHAR.get("re_kwd"):
+        return tuple(result)
+
+    @functools.wraps(func)
+    def _wrapper(payload, ignore_space=False):
+        if isinstance(payload, ast.AST):
+            payload = ast.unparse(payload)
+
+        return list(
+            _cached(
+                str(payload),
+                bool(ignore_space),
+                extra_key_func() if extra_key_func else None,
+            )
+        )
+
+    _wrapper._p9h_cached = True
+    _wrapper._p9h_check_impl = func
+    return _wrapper
+
+
+def check(payload, ignore_space=False):
+    kwd = tuple(BLACK_CHAR.get("kwd", []))
+    re_kwd = BLACK_CHAR.get("re_kwd", "")
+    if not kwd and not re_kwd:
         # 无规则？提示一下
         sys.exit(put_color(f"[!] rule is empty, do not need bypass", "red"))
 
+    payload = str(payload)
     kwd_check = [
-        i
-        for i in BLACK_CHAR.get("kwd", [])
+        i for i in kwd
         if (not ignore_space or (ignore_space and i not in [" ", "\t"]))
-        and i in str(payload)
-    ] + list(
-        set(
-            re.findall(BLACK_CHAR["re_kwd"], str(payload))
-            if BLACK_CHAR.get("re_kwd")
-            else []
-        )
-        - ({" ", "\t"} if ignore_space else set())
-    )
-    return kwd_check
+        and i in payload
+    ]
+    re_check = (
+        set(re.findall(re_kwd, payload))
+        if re_kwd
+        else set()
+    ) - ({" ", "\t"} if ignore_space else set())
+    return kwd_check + sorted(re_check)
+
+
+check = cache_check_func(
+    check,
+    extra_key_func=lambda: (
+        tuple(BLACK_CHAR.get("kwd", [])),
+        BLACK_CHAR.get("re_kwd") or "",
+    ),
+)
 
 
 class P9H(ast._Unparser):
@@ -68,6 +106,12 @@ class P9H(ast._Unparser):
         specify_bypass_map={},
     ):
         globals()["FORMAT_SPACE"] = ""
+        # 自动加上缓存机制
+        globals()["check"] = (
+            globals()["check"]
+            if getattr(globals()["check"], "_p9h_cached", False)
+            else cache_check_func(globals()["check"])
+        )
         self.source_code = source_code
         # print("source_code", depth, source_code)
         try:
@@ -241,11 +285,7 @@ class P9H(ast._Unparser):
                     continue
 
             old_len = len(self._source)
-            self.cprint(
-                f"try {put_color(func, 'cyan')}",
-                level="debug",
-                depth=self.depth + 2,
-            )
+            self.cprint(f"try {put_color(func, 'cyan')}", level="debug", depth=self.depth+2)
             # 执行 bypass 函数
             result = bypass_funcs[func]()
             self._source = self._source[:old_len]
