@@ -220,6 +220,7 @@ Currently supported:
 
 | Class | Method | Payload | Bypass | Notes |
 | ----- | ------ | ------- | ------ | ----- |
+| Bypass_String | by_doc_index | `'system'` | `help.__doc__[...]+...` | build strings by slicing available builtin `__doc__` text |
 | Bypass_Attribute | by_getattr | `str.find` | `getattr(str, 'find')` | getattr-based bypass, related idea by [@chi111i](https://github.com/chi111i) |
 | Bypass_Attribute | by_vars | `str.find` | `vars(str)["find"]` | vars-based bypass |
 | Bypass_Attribute | by_dict_attr | `str.find` | `str.__dict__["find"]` | `__dict__`-based bypass |

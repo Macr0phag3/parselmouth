@@ -22,6 +22,17 @@ def get_builtin_func_self_names():
 
 BUILTIN_FUNC_SELF_NAMES = get_builtin_func_self_names()
 
+def get_builtin_doc_name():
+    result = []
+    for name in dir(builtins):
+        obj = getattr(builtins, name, None)
+        if isinstance(getattr(obj, "__doc__", None), str):
+            result.append(name)
+
+    return tuple(sorted(result, key=lambda item: (len(item), item)))
+
+BUILTIN_DOC_NAMES = get_builtin_doc_name()
+
 
 def recursion_protect(func):
     @functools.wraps(func)
@@ -284,13 +295,17 @@ class Bypass_String(_Bypass):
         if self.node._value == "":
             return self.P9H(f"str()").visit()
         else:
-            return repr(self.node._value)
+            return None
 
     @recursion_protect
     def by_quote_trans(self):
         # p9h.P9H._write_str_avoiding_backslashes 中
         # 做了特殊处理，这里直接使用 repr 即可
-        return repr(self.node._value)
+        result = repr(self.node._value)
+        if p9h.check(result):
+            return None
+
+        return result
 
     @recursion_protect
     def by_char_add(self):
@@ -309,13 +324,13 @@ class Bypass_String(_Bypass):
             iden_tail = "[1:]"
             letters = [i for i in string.ascii_letters + "_" if not p9h.check(i)]
             if not letters:
-                return repr(self.node._value)
+                return None
 
             iden = letters[0] + iden
 
             if not iden.isidentifier():
                 # 非法标识符
-                return repr(self.node._value)
+                return None
 
         exps = [
             f"list(dict({iden}=()))[0]",
@@ -360,7 +375,7 @@ class Bypass_String(_Bypass):
             # 并且参数就是 chr_format 所必须的字符 %、c
             # 就不要再用 chr_format bypass 尝试了
             if i[1] == "by_char_format" and set(i[2]) | set("%c"):
-                return repr(self.node._value)
+                return None
 
         format_str = "%c" * len(self.node._value)
         if len(self.node._value) == 1:
@@ -381,7 +396,7 @@ class Bypass_String(_Bypass):
             # 并且参数就是 format 所必须的字符 {、}
             # 就不要再用 format bypass 尝试了
             if i[1] == "by_format" and set(i[2]) | set("{}"):
-                return repr(self.node._value)
+                return None
 
         _loc = "{}" * len(self.node._value)
         exp = [f"chr({ord(i)})" for i in self.node._value]
@@ -401,7 +416,7 @@ class Bypass_String(_Bypass):
         if len(s) > 1 and s[0][:2] == s[1][:2] and s[0][2] == s[1][2][::-1]:
             # 放弃 bypass
             # 避免出现 "123" -> "123"[::-1][::-1] 的现象
-            return repr(self.node._value)
+            return None
 
         result = self.P9H(
             f"{repr(self.node._value[::-1])}[::-1]",
@@ -414,7 +429,7 @@ class Bypass_String(_Bypass):
         if all([i in range(256) for i in byte_list]):
             return self._join([f"str(bytes([{i}]))[2]" for i in byte_list])
         else:
-            return repr(self.node._value)
+            return None
 
     @recursion_protect
     def by_bytes_full(self):
@@ -424,7 +439,87 @@ class Bypass_String(_Bypass):
                 f"bytes({str(byte_list)}).decode()",
             ).visit()
 
-        return repr(self.node._value)
+        return None
+
+    @recursion_protect
+    def by_doc_index(self):
+        if self.node._value == "":
+            return None
+
+        avail_exp = []
+        doc_names = BUILTIN_DOC_NAMES
+        for name in doc_names:
+            if p9h.check(name):
+                continue
+
+            source_exp = f"{name}.__doc__"
+            source_text = getattr(getattr(builtins, name, None), "__doc__", None)
+            if not isinstance(source_text, str):
+                continue
+
+            char_exp = {}
+            for char in self.node._value:
+                if char in char_exp:
+                    continue
+
+                if not (self.p9h_self.min_len or self.p9h_self.min_set):
+                    idx = source_text.find(char)
+                    if idx == -1:
+                        char_exp = None
+                        break
+
+                    char_exp[char] = self.P9H(f"{source_exp}[{idx}]").visit()
+                    continue
+
+                best_piece = None
+                for idx, source_char in enumerate(source_text):
+                    if source_char != char:
+                        continue
+
+                    piece = self.P9H(f"{source_exp}[{idx}]").visit()
+                    if self.p9h_self.min_set:
+                        if best_piece is None or (
+                            len(set(piece)),
+                            len(piece),
+                            piece,
+                        ) < (
+                            len(set(best_piece)),
+                            len(best_piece),
+                            best_piece,
+                        ):
+                            best_piece = piece
+                    else:
+                        if best_piece is None or (len(piece), piece) < (
+                            len(best_piece),
+                            best_piece,
+                        ):
+                            best_piece = piece
+
+                if best_piece is None:
+                    char_exp = None
+                    break
+
+                char_exp[char] = best_piece
+
+            if char_exp is None:
+                continue
+
+            result = self._join(char_exp[char] for char in self.node._value)
+            if not (self.p9h_self.min_len or self.p9h_self.min_set):
+                return result
+
+            avail_exp.append(result)
+
+        if not avail_exp:
+            return None
+
+        if self.p9h_self.min_set:
+            return min(avail_exp, key=lambda item: (len(set(item)), len(item), item))
+
+        if self.p9h_self.min_len:
+            return min(avail_exp, key=lambda item: (len(item), item))
+
+        return avail_exp[0]
 
 
 class Bypass_Name(_Bypass):
@@ -486,13 +581,16 @@ class Bypass_Name(_Bypass):
 
         name = self.node._value
         if not hasattr(builtins, name):
-            return name
+            return None
 
         avail_builtin_func_names = [
             builtin_func_name
             for builtin_func_name in BUILTIN_FUNC_SELF_NAMES
             if builtin_func_name != name and not p9h.check(builtin_func_name)
         ]
+
+        if not avail_builtin_func_names:
+            return None
 
         # 下沉最小长度的判定逻辑
         if self.p9h_self.min_set:
@@ -510,7 +608,7 @@ class Bypass_Name(_Bypass):
     def by_frame(self):
         name = self.node._value
         if not hasattr(builtins, name):
-            return name
+            return None
 
         return self.P9H(f"(i for i in ()).gi_frame.f_builtins[{repr(name)}]").visit()
 

@@ -218,6 +218,7 @@ if __name__ == "__main__":
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
+| Bypass_String  | by_doc_index | `'system'` | `help.__doc__[...]+...` | 从可用 builtin 的 `__doc__` 文本中切字符拼字符串 |
 | Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过，相关思路参考 [@chi111i](https://github.com/chi111i) |
 | Bypass_Attribute    | by_vars   | `str.find` | `vars(str)["find"]` | vars 绕过|
 | Bypass_Attribute    | by_dict_attr   | `str.find` | `str.__dict__["find"]` | `__dict__` 绕过|

