@@ -28,16 +28,19 @@ English README: [README_EN.md](README_EN.md)
 import parselmouth as p9h
 
 
-p9h.BLACK_CHAR = {"kwd": [".", "'", '"', "chr", "dict"]}
-# p9h.BLACK_CHAR = {"re_kwd": "\.|'|\"|chr|dict"}  # 或者这样
+p9h.BLACK_CHAR = {"kwd": [".", "'", '"']}
+# p9h.BLACK_CHAR = {"re_kwd": "\.|'|\""}  # 或者这样
 runner = p9h.P9H(
     "__import__('os').popen('whoami').read()",
-    specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}}, 
-    min_len=True, versbose=0,
+    specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}},
+    min_len=False, versbose=0,
 )
 result = runner.visit()
 status, c_result = p9h.color_check(result)
-print(status, c_result, result)
+if status:
+    print("bypass success")
+    print("payload:", runner.source_code)
+    print("exp:", result)
 ```
 
 `p9h.P9H` 关键参数解释：

@@ -2,6 +2,9 @@ import functools
 
 import parselmouth as p9h
 
+"""
+这里不全是可以 bypass 的测试用例
+"""
 
 def _test(t_cls, t_func, payload, kwd, rekwd, **xargs):
     p9h.BLACK_CHAR = {"kwd": kwd, "re_kwd": rekwd}
