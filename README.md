@@ -216,6 +216,7 @@ if __name__ == "__main__":
 | Bypass_Name    | by_builtins_item   | `__import__` | `__builtins__['__import__']` | 从字典形态的 `__builtins__` 获取 name |
 | Bypass_Name    | by_builtin_func_self   | `__import__` | `id.__self__.__import__` | 通过任意 `builtin_function_or_method.__self__` 拿到 builtins，自动选择可用入口 |
 | Bypass_Name    | by_frame   | `__import__` | `(i for i in ()).gi_frame.f_builtins['__import__']` | 通过生成器 frame 的 `f_builtins` 获取 name |
+| Bypass_Name    | by_running_frame   | `__import__` | `[[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins['__import__']` | 通过运行中生成器回溯到 caller frame 的 `f_builtins` 获取 name |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
@@ -223,6 +224,11 @@ if __name__ == "__main__":
 | Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过，相关思路参考 [@chi111i](https://github.com/chi111i) |
 | Bypass_Attribute    | by_vars   | `str.find` | `vars(str)["find"]` | vars 绕过|
 | Bypass_Attribute    | by_dict_attr   | `str.find` | `str.__dict__["find"]` | `__dict__` 绕过|
+
+|  类   |   方法名  | payload | bypass | 解释说明 |
+| ----- | -------- | ------- | ------- | ----- |
+| Bypass_Subscript    | by_getitem_attr   | `a[0]` / `a[1:2]` | `a.__getitem__(0)` / `a.__getitem__(slice(1,2))` | 把一元下标/切片访问改写成 `__getitem__` 调用；多维索引暂时回退原样 |
+| Bypass_Subscript    | by_getitem_getattr   | `a[0]` / `a[:2]` | `getattr(a, '__getitem__')(0)` / `getattr(a, '__getitem__')(slice(None,2))` | 通过 `getattr` 获取 `__getitem__` 后再调用；多维索引暂时回退原样 |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
@@ -251,9 +257,7 @@ if __name__ == "__main__":
 - [ ] `__import__` -> `__loader__().load_module`
 - [ ] `",".join("123")` -> `"".__class__.join(",", "123")`
 - [ ] `",".join("123")` -> `str.join(",", "123")`
-- [ ] `"123"[0]` -> `"123".__getitem__(0)`
 - [ ] `"0123456789"` -> `sorted(set(str(hash(()))))`
-- [ ] `[1, 2, 3][0]` -> `[1, 2, 3].__getitem__()`
 - [ ] `2024` -> `next(reversed(range(2025)))`
 - [ ] `{"a": 1}["a"]` -> `{"a": 1}.pop("a")`
 - [ ] `1` -> `int(max(max(dict(a၁=()))))`

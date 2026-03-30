@@ -143,14 +143,19 @@ class Bypass_Int(_Bypass):
                 "len( () )",
                 "any( () )",
                 "bool( bool )",
+                "[] != []",
+                "[] is []",
+                "[] > []",
+                "[] < []",
             ],
             1: [
                 "True",
                 "0**0",
                 "all( () )",
-                "len( ((), ()) )",
+                "[] == []",
+                "[] is not []",
             ],
-            2: ["len( str( () ) )"],
+            2: ["len( str( () ) )", "len( ((), ()) )"],
         }
 
         # 填充 0-9 缺失的数字
@@ -612,6 +617,18 @@ class Bypass_Name(_Bypass):
 
         return self.P9H(f"(i for i in ()).gi_frame.f_builtins[{repr(name)}]").visit()
 
+    @recursion_protect
+    def by_running_frame(self):
+        """
+        __import__ => running generator frame -> caller frame -> f_builtins['__import__']
+        """
+
+        name = self.node._value
+        if not hasattr(builtins, name):
+            return None
+
+        return self.P9H(f"[[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins[{repr(name)}]").visit()
+
 class Bypass_Attribute(_Bypass):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -656,6 +673,73 @@ class Bypass_Attribute(_Bypass):
             ).visit()
         else:
             return None
+
+
+class Bypass_Subscript(_Bypass):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.node._value = [getattr(self.node, "value"), getattr(self.node, "slice")]
+
+    def _getitem_arg_part(self, node):
+        if node is None:
+            return "None"
+
+        return self._getitem_arg(node)
+
+    def _getitem_arg(self, node):
+        if isinstance(node, ast.Slice):
+            lower = self._getitem_arg_part(node.lower)
+            upper = self._getitem_arg_part(node.upper)
+            step = self._getitem_arg_part(node.step)
+
+            if node.step is not None:
+                return f"slice({lower},{upper},{step})"
+
+            if node.lower is None and node.upper is None:
+                return "slice(None)"
+
+            if node.lower is None:
+                return f"slice(None,{upper})"
+
+            if node.upper is None:
+                return f"slice({lower},None)"
+
+            return f"slice({lower},{upper})"
+
+        if isinstance(node, ast.Tuple):
+            # 暂时只支持一元索引
+            # 像 a[1:2,3] / a[0,1] 这类多维索引暂不支持
+            return None
+
+        return self.P9H(node).visit()
+
+    @recursion_protect
+    def by_getitem_attr(self):
+        """
+        a[b] => a.__getitem__(b)
+        """
+        value, index = self.node._value
+        index_exp = self._getitem_arg(index)
+        if index_exp is None:
+            return None
+
+        return self.P9H(
+            f"{self.P9H(value).visit()}.__getitem__({index_exp})",
+        ).visit()
+
+    @recursion_protect
+    def by_getitem_getattr(self):
+        """
+        a[b] => getattr(a, '__getitem__')(b)
+        """
+        value, index = self.node._value
+        index_exp = self._getitem_arg(index)
+        if index_exp is None:
+            return None
+
+        return self.P9H(
+            f"getattr({self.P9H(value).visit()}, '__getitem__')({index_exp})",
+        ).visit()
 
 
 class Bypass_Call(_Bypass):

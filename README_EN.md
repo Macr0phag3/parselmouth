@@ -217,6 +217,7 @@ Currently supported:
 | Bypass_Name | by_builtins_item | `__import__` | `__builtins__['__import__']` | fetch the name from dict-shaped `__builtins__` |
 | Bypass_Name | by_builtin_func_self | `__import__` | `id.__self__.__import__` | reach builtins through any available `builtin_function_or_method.__self__` |
 | Bypass_Name | by_frame | `__import__` | `(i for i in ()).gi_frame.f_builtins['__import__']` | fetch the name through generator-frame `f_builtins` |
+| Bypass_Name | by_running_frame | `__import__` | `[[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins['__import__']` | reach caller-frame `f_builtins` through a running generator frame |
 
 | Class | Method | Payload | Bypass | Notes |
 | ----- | ------ | ------- | ------ | ----- |
@@ -224,6 +225,11 @@ Currently supported:
 | Bypass_Attribute | by_getattr | `str.find` | `getattr(str, 'find')` | getattr-based bypass, related idea by [@chi111i](https://github.com/chi111i) |
 | Bypass_Attribute | by_vars | `str.find` | `vars(str)["find"]` | vars-based bypass |
 | Bypass_Attribute | by_dict_attr | `str.find` | `str.__dict__["find"]` | `__dict__`-based bypass |
+
+| Class | Method | Payload | Bypass | Notes |
+| ----- | ------ | ------- | ------ | ----- |
+| Bypass_Subscript | by_getitem_attr | `a[0]` / `a[1:2]` | `a.__getitem__(0)` / `a.__getitem__(slice(1,2))` | rewrites unary index/slice access as a direct `__getitem__` call; multi-index cases currently fall back unchanged |
+| Bypass_Subscript | by_getitem_getattr | `a[0]` / `a[:2]` | `getattr(a, '__getitem__')(0)` / `getattr(a, '__getitem__')(slice(None,2))` | fetches `__getitem__` via `getattr` before calling it; multi-index cases currently fall back unchanged |
 
 | Class | Method | Payload | Bypass | Notes |
 | ----- | ------ | ------- | ------ | ----- |
@@ -251,9 +257,7 @@ Whether this tool solves a challenge for you or not, issue reports with addition
 - [ ] `__import__` -> `__loader__().load_module`
 - [ ] `",".join("123")` -> `"".__class__.join(",", "123")`
 - [ ] `",".join("123")` -> `str.join(",", "123")`
-- [ ] `"123"[0]` -> `"123".__getitem__(0)`
 - [ ] `"0123456789"` -> `sorted(set(str(hash(()))))`
-- [ ] `[1, 2, 3][0]` -> `[1, 2, 3].__getitem__()`
 - [ ] `2024` -> `next(reversed(range(2025)))`
 - [ ] `{"a": 1}["a"]` -> `{"a": 1}.pop("a")`
 - [ ] `1` -> `int(max(max(dict(a၁=()))))`

@@ -63,6 +63,18 @@ def test_Int():
     >>> _test("by_ord", "9", ["1", "0", "9"], "0|1|9")
     ord('\\t')
 
+    >>> _test("by_trans", "0", ["0", "False", "len", "any", "bool"], "0|False|len|any|bool")
+    [] != []
+
+    >>> _test("by_trans", "1", ["1", "0", "True", "all", "len", "*"], r"1|0|True|all|len|\\*")
+    [] == []
+
+    >>> _test("by_cal", "0", ["0", "False", "len", "any", "bool"], "0|False|len|any|bool")
+    [] != []
+
+    >>> _test("by_cal", "1", ["1", "0", "True", "all", "len", "*"], r"1|0|True|all|len|\\*")
+    [] == []
+
     >>> _test("by_cal", "-1", ["1", ], "1")
     8-9
 
@@ -214,6 +226,16 @@ def test_Name():
     >>> _test("by_frame", "__import__", [], "^__import__$")
     (i for i in ()).gi_frame.f_builtins['__import__']
 
+    >>> _test("by_running_frame", "__import__", [], "^__import__$")
+    [[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins['__import__']
+
+    # ----- 无法 bypass ----- 
+    >>> _test("by_frame", "__import__", ["gi_frame.f_builtins"], r"^__import__$|gi_frame\\.f_builtins")
+    __import__
+
+    >>> _test("by_running_frame", "__import__", ["gi_frame.f_builtins"], r"^__import__$|gi_frame\\.f_builtins")
+    [[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins['__import__']
+
     >>> _test("by_unicode", "dict(a=__import__)", ["__i"], "__i")
     dict(a=_＿import__)
 
@@ -225,6 +247,9 @@ def test_Name():
 
     >>> _test("by_builtin_func_self", "dict(a=__import__)", [], "^__import__$")
     dict(a=id.__self__.__import__)
+
+    >>> _test("by_running_frame", "dict(a=__import__)", [], "^__import__$")
+    dict(a=[[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins['__import__'])
     """
 
 
@@ -249,6 +274,35 @@ def test_Attribute():
     # ----- 无法进行 bypass -----
     >>> _test("by_dict_attr", "(1+1).system", [".", ], r"\\.")
     (1+1).system
+    """
+
+
+def test_Subscript():
+    """
+    >>> _test = functools.partial(_test, "Bypass_Subscript")
+    >>> # ---------------------------------------------------
+
+    >>> _test("by_getitem_attr", "a[0]", ["["], r"\\[")
+    a.__getitem__(0)
+
+    >>> _test("by_getitem_getattr", "a[0]", ["["], r"\\[")
+    getattr(a,'__getitem__')(0)
+
+    >>> _test("by_getitem_attr", "a[1:2]", ["["], r"\\[")
+    a.__getitem__(slice(1,2))
+
+    >>> _test("by_getitem_getattr", "a[:2]", ["["], r"\\[")
+    getattr(a,'__getitem__')(slice(None,2))
+
+    >>> _test("by_getitem_attr", "a[::2]", ["["], r"\\[")
+    a.__getitem__(slice(None,None,2))
+
+    # ----- 暂时只支持一元索引 -----
+    >>> _test("by_getitem_attr", "a[0,1]", ["["], r"\\[")
+    a[0,1]
+
+    >>> _test("by_getitem_getattr", "a[1:2,3]", ["["], r"\\[")
+    a[1:2,3]
     """
 
 
@@ -287,13 +341,13 @@ def test_Combo():
 
     >>> # ----- Int -----
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "True", "all"], r"\\d|all|True", maps=maps)
-    len(str(()))**False
+    [] == []
 
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "12", ["1", "2", "True"], "1|2|True", maps=maps)
     9+3
 
     >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "1", ["1", "True", "all", "(", "*", "+"], r"1|True|all|\\(|\\*|\\+", maps=maps)
-    -~False
+    [] == []
 
     >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "2", ["2", "True"], "2|True", maps=maps)
     len(str(()))
@@ -302,7 +356,7 @@ def test_Combo():
     all(())
 
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "3", "4", "5", "6", "7", "8", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "True", "False", "*"], r"[0|1|3-8|a-z|True|False|\\*]", maps=maps)
-    2+2+2-(9-2)
+    [] == []-2
 
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "+"], r"[0-9|\\*|\\+]", maps=maps)
     True-len(str(()))

@@ -484,6 +484,28 @@ class P9H(ast._Unparser):
             )
         )
 
+    def visit_Subscript(self, node):
+        def _by_raw():
+            self.set_precedence(ast._Precedence.ATOM, node.value)
+            self.traverse(node.value)
+            with self.delimit("[", "]"):
+                if isinstance(node.slice, ast.Tuple):
+                    for i, elt in enumerate(node.slice.elts):
+                        if i > 0:
+                            self.write(",")
+                        self.traverse(elt)
+                else:
+                    self.traverse(node.slice)
+
+        return self.try_bypass(
+            dict(
+                bypass_tools.Bypass_Subscript(
+                    BLACK_CHAR, node, p9h_self=self
+                ).get_map(),
+                **{"by_raw": _by_raw},
+            )
+        )
+
     def visit_keyword(self, node):
         def _by_raw():
             if node.arg is None:
