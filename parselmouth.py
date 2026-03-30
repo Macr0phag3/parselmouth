@@ -576,6 +576,23 @@ class P9H(ast._Unparser):
             self.set_precedence(operator_precedence, node.operand)
             self.traverse(node.operand)
 
+    def visit_Compare(self, node):
+        with self.require_parens(ast._Precedence.CMP, node):
+            self.set_precedence(
+                ast._Precedence.CMP.next(),
+                node.left,
+                *node.comparators,
+            )
+            self.traverse(node.left)
+            for op_node, comparator in zip(node.ops, node.comparators):
+                op = self.cmpops[op_node.__class__.__name__]
+                # 只压缩纯符号比较；`is not` / `not in` 等仍需保留空格保证语法正确
+                if op in ["==", "!=", "<", "<=", ">", ">="]:
+                    self.write(op)
+                else:
+                    self.write(f" {op} ")
+                self.traverse(comparator)
+
     def visit_BoolOp(self, node):
         def _by_raw():
             self.write("(")

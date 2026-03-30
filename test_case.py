@@ -64,16 +64,16 @@ def test_Int():
     ord('\\t')
 
     >>> _test("by_trans", "0", ["0", "False", "len", "any", "bool"], "0|False|len|any|bool")
-    [] != []
+    []!=[]
 
     >>> _test("by_trans", "1", ["1", "0", "True", "all", "len", "*"], r"1|0|True|all|len|\\*")
-    [] == []
+    []==[]
 
     >>> _test("by_cal", "0", ["0", "False", "len", "any", "bool"], "0|False|len|any|bool")
-    [] != []
+    []!=[]
 
     >>> _test("by_cal", "1", ["1", "0", "True", "all", "len", "*"], r"1|0|True|all|len|\\*")
-    [] == []
+    []==[]
 
     >>> _test("by_cal", "-1", ["1", ], "1")
     8-9
@@ -341,13 +341,13 @@ def test_Combo():
 
     >>> # ----- Int -----
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "True", "all"], r"\\d|all|True", maps=maps)
-    [] == []
+    []==[]
 
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "12", ["1", "2", "True"], "1|2|True", maps=maps)
     9+3
 
     >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "1", ["1", "True", "all", "(", "*", "+"], r"1|True|all|\\(|\\*|\\+", maps=maps)
-    [] == []
+    []==[]
 
     >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "2", ["2", "True"], "2|True", maps=maps)
     len(str(()))
@@ -356,7 +356,7 @@ def test_Combo():
     all(())
 
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "3", "4", "5", "6", "7", "8", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "True", "False", "*"], r"[0|1|3-8|a-z|True|False|\\*]", maps=maps)
-    ([] == [])-2
+    ([]==[])-2
 
     >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "+"], r"[0-9|\\*|\\+]", maps=maps)
     True-len(str(()))
