@@ -192,7 +192,6 @@ class Bypass_Int(_Bypass):
 
     @recursion_protect
     def by_cal(self):
-        time_budget = 2.5 if self.p9h_self.min_len else 1.5
         atom_map = {}
         digit_atoms = []
         operators = [op for op in ("**", "*", "+", "-") if not p9h.check(op)]
@@ -230,6 +229,11 @@ class Bypass_Int(_Bypass):
                     current = atom_map.get(value)
                     if current is None or len(text) < len(current):
                         atom_map[value] = text
+
+        time_budget = 5 if self.p9h_self.min_len else 2
+        # digit atom 足够多时会额外生成大量两位/三位数候选，给 solver 稍微多一点时间
+        if len(digit_atoms) >= 5:
+            time_budget += 2
 
         result = find_expression(
             atoms=[(text, value) for value, text in atom_map.items()],

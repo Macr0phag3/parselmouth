@@ -27,6 +27,22 @@ _PREC = {"+": 1, "-": 1, "*": 2, "/": 2, "**": 3}
 _VALUE_LIMIT = 10**7
 _TIME_CHECK_INTERVAL = 2048
 _TIMED_OUT = object()
+_LOW_PRECEDENCE_MARKERS = (
+    "==",
+    "!=",
+    "<=",
+    ">=",
+    "<",
+    ">",
+    " is ",
+    " is not ",
+    " in ",
+    " not in ",
+    " and ",
+    " or ",
+    " if ",
+    ":=",
+)
 _SAFE_EVAL_GLOBALS = {
     "__builtins__": {
         "Fraction": Fraction,
@@ -85,6 +101,8 @@ def _to_str(node):
 
 def _wrap(child, parent_op, is_right):
     if isinstance(child, Atom):
+        if any(marker in child.text for marker in _LOW_PRECEDENCE_MARKERS):
+            return f"({child.text})"
         return child.text
 
     child_text = _to_str(child)
