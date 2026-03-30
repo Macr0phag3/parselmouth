@@ -99,7 +99,7 @@ class P9H(ast._Unparser):
         self,
         source_code,
         depth=0,
-        versbose=1,
+        verbose=1,
         bypass_history=None,
         min_len=False,
         min_set=False,
@@ -127,7 +127,7 @@ class P9H(ast._Unparser):
             )
             raise
 
-        self.verbose = versbose
+        self.verbose = verbose
         if bypass_history == None:
             self.bypass_history = []
         else:
@@ -686,7 +686,7 @@ if __name__ == "__main__":
         print(
             f"[*] min type: {put_color('shortest' if args.shortest else 'minimal char set', 'white')}"
         )
-    print(f"[*] versbose: {put_color(args.v, 'white')}")
+    print(f"[*] verbose: {put_color(args.v, 'white')}")
     print(put_color("\n[*] hacking....\n", "green"))
 
     if args.re_rule:
@@ -708,7 +708,7 @@ if __name__ == "__main__":
     BLACK_CHAR = {"kwd": args.rule, "re_kwd": args.re_rule}
     p9h = P9H(
         args.payload,
-        versbose=args.v,
+        verbose=args.v,
         specify_bypass_map=specify_bypass_map,
         min_len=args.shortest,
         min_set=args.minset,

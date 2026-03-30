@@ -35,7 +35,7 @@ p9h.BLACK_CHAR = {"kwd": [".", "'", '"']}
 runner = p9h.P9H(
     "__import__('os').popen('whoami').read()",
     specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}},
-    min_len=False, versbose=0,
+    min_len=False, verbose=0,
 )
 result = runner.visit()
 status, c_result = p9h.color_check(result)
@@ -49,7 +49,7 @@ Key `p9h.P9H` arguments:
 - `source_code`: the payload to bypass.
 - `specify_bypass_map`: white/black list for bypass functions. For example, if you do not want variable names to rely on unicode normalization, pass `{"black": {"Bypass_Name": ["by_unicode"]}}`.
 - `min_len`: search for the shortest expression.
-- `versbose`: verbosity level (`0` to `3`).
+- `verbose`: verbosity level (`0` to `3`).
 - `depth`: usually not needed; mainly used for indentation when printing logs.
 - `bypass_history`: usually not needed; cache for known successful and failed bypass attempts, e.g. `{"success": {}, "failed": []}`.
 
@@ -88,7 +88,7 @@ p9h.BLACK_CHAR = {"kwd": ["mac", "::", "by_char", "bytes", "chr", "dict"]}
 runner = p9h.P9H(
     "'macr0phag3'",
     specify_bypass_map={"white": {"Bypass_String": ["by_base64"]}},
-    versbose=2,
+    verbose=2,
 )
 result = runner.visit()
 status, c_result = p9h.color_check(result)
@@ -141,7 +141,7 @@ def check(payload, ignore_space=False):
 
 
 p9h.check = check
-runner = p9h.P9H("__import__('os').popen('whoami').read()", versbose=2)
+runner = p9h.P9H("__import__('os').popen('whoami').read()", verbose=2)
 result = runner.visit()
 status, c_result = p9h.color_check(result)
 if status:

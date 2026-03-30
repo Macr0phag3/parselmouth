@@ -119,7 +119,7 @@ class _Bypass:
             min_len=p9h_self.min_len,
             min_set=p9h_self.min_set,
             depth=p9h_self.depth + 3 if p9h_self.verbose >= 2 else p9h_self.depth + 2,
-            versbose=p9h_self.verbose,
+            verbose=p9h_self.verbose,
         )
         p9h.BLACK_CHAR = rule
 

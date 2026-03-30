@@ -33,7 +33,7 @@ p9h.BLACK_CHAR = {"kwd": [".", "'", '"']}
 runner = p9h.P9H(
     "__import__('os').popen('whoami').read()",
     specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}},
-    min_len=False, versbose=0,
+    min_len=False, verbose=0,
 )
 result = runner.visit()
 status, c_result = p9h.color_check(result)
@@ -47,7 +47,7 @@ if status:
 - `source_code`: 需要 bypass 的 payload
 - `specify_bypass_map`: 指定 bypass function 的黑白名单；例如如果不希望变量名通过 unicode 字符的规范化进行 bypass，可以传参 `{"black": {"Bypass_Name": ["by_unicode"]}}`
 - `min_len`: 寻找最小的 exp
-- `versbose`: 输出的详细程度（`0` ~ `3`）
+- `verbose`: 输出的详细程度（`0` ~ `3`）
 - `depth`: 通常情况下不需要使用这个参数；打印信息时所需要的缩进数量
 - `bypass_history`: 通常情况下不需要使用这个参数；用于缓存 `可以 bypass` 和 `不可以 bypass` 的已知情况，值示例 `{"success": {}, "failed": []}`
 
@@ -86,7 +86,7 @@ p9h.BLACK_CHAR = {"kwd": ["mac", "::", "by_char", "bytes", "chr", "dict"]}
 runner = p9h.P9H(
     "'macr0phag3'",
     specify_bypass_map={"white": {"Bypass_String": ["by_base64"]}},
-    versbose=2,
+    verbose=2,
 )
 result = runner.visit()
 status, c_result = p9h.color_check(result)
@@ -139,7 +139,7 @@ def check(payload, ignore_space=False):
 
 
 p9h.check = check
-runner = p9h.P9H("__import__('os').popen('whoami').read()", versbose=2)
+runner = p9h.P9H("__import__('os').popen('whoami').read()", verbose=2)
 result = runner.visit()
 status, c_result = p9h.color_check(result)
 if status:

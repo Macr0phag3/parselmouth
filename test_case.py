@@ -28,7 +28,7 @@ def _test(t_cls, t_func, payload, kwd, rekwd, **xargs):
             "black": [],
         },
         depth=1,
-        versbose=0,
+        verbose=0,
     )
     print(p9h_ins.visit())
 
