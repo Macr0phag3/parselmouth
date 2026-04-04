@@ -10,20 +10,28 @@ An automated Python sandbox-escape payload bypass framework.
 - Install dependencies: `pip install -r requirements`
 
 ### 1.1 Using the CLI
-- Show help: `python parselmouth.py -h`
-- Specify both the payload and rules: `python parselmouth.py --payload "__import__('os').popen('whoami').read()" --rule "__" "." "'" '"' "read" "chr"`
+- The CLI entrypoint is `cli.py`; `parselmouth.py` is now primarily the importable core library
+- Show help: `python cli.py -h`
+- Specify both the payload and rules: `python cli.py --payload "__import__('os').popen('whoami').read()" --rule "__" "." "'" '"' "read" "chr"`
   - In many real cases there are too many blocked characters to pass one by one, so `--re-rule` is often more convenient. For example, `--re-rule '[0-9]'` is equivalent to `--rule "0" "1" "2" "3" "4" "5" "6" "7" "8" "9"`.
   - On Windows, if you need to pass `"`, use `"\""` instead of `'"'`.
-- You can control bypass methods with `--specify-bypass`. For example, if you do not want integers to use unicode normalization for bypassing, you can pass `--specify-bypass '{"black": {"Bypass_Int": ["by_unicode"]}}'`.
+- You can control bypass methods with `--specify-bypass`. For example, if you do not want integers to use unicode normalization for bypassing, you can pass `--specify-bypass '{"black": {"Bypass_Int": "by_unicode"}}'`.
 - `--shortest`: search for the shortest expression.
 - `--minset`: search for the expression with the smallest character set.
-- Use `-v` for more logs, and `-vv` for debug logs. In most cases you do not need debug output.
+- CLI output is rendered with Rich and shows run configuration, live status, and the final summary by default.
+- Control process output with `-v/-vv/-vvv`:
+  - `0` (default): summary only
+  - `-v`: concise progress output
+  - `-vv`: target payloads and the selected attempt chain
+  - `-vvv`: detailed attempt output
+- Note: some bypasses emit payload warnings. Because local rewriting cannot know the real target runtime behavior in advance, the final result panel will show the caveat and a ready-to-copy disable hint.
 
-After adding custom bypass functions, you can put test payloads, rules, and expected answers into `test_case.py`, then run:
+After adding custom bypass functions, it is worth running both kinds of tests:
 
-```bash
-python run_test.py
-```
+- `python run_test.py`: doctest-style functional regression tests
+- `python stress_test.py`: coverage-oriented traversal of the current bypass set
+- `python stress_test.py --extended`: extra depth / length stress cases
+- `python stress_test.py --match "Bypass_Subscript"`: only run a subset of cases
 
 ### 1.2 Using It as a Library
 ```python
@@ -34,7 +42,7 @@ p9h.BLACK_CHAR = {"kwd": [".", "'", '"']}
 # p9h.BLACK_CHAR = {"re_kwd": "\.|'|\""}  # equivalent regex form
 runner = p9h.P9H(
     "__import__('os').popen('whoami').read()",
-    specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}},
+    specify_bypass_map={"black": {"Bypass_Name": "by_unicode"}},
     min_len=False, verbose=0,
 )
 result = runner.visit()
@@ -47,14 +55,20 @@ if status:
 
 Key `p9h.P9H` arguments:
 - `source_code`: the payload to bypass.
-- `specify_bypass_map`: white/black list for bypass functions. For example, if you do not want variable names to rely on unicode normalization, pass `{"black": {"Bypass_Name": ["by_unicode"]}}`.
+- `specify_bypass_map`: white/black list for bypass functions. For example, if you do not want variable names to rely on unicode normalization, pass `{"black": {"Bypass_Name": "by_unicode"}}`. Multiple methods should be written as a comma-separated string like `"by_func1, by_func2"`.
 - `min_len`: search for the shortest expression.
+- `min_set`: search for the expression with the smallest character set.
 - `verbose`: verbosity level (`0` to `3`).
+  - `0`: final summary only
+  - `1`: concise bypass progress
+  - `2`: target payloads and the selected attempt chain
+  - `3`: detailed attempt output
+- `status`: optional; pass `p9h.RuntimeStatus(p9h.console)` if you also want the live status bar when embedding it yourself.
 - `depth`: usually not needed; mainly used for indentation when printing logs.
-- `bypass_history`: usually not needed; cache for known successful and failed bypass attempts, e.g. `{"success": {}, "failed": []}`.
+- `bypass_history`: usually not needed manually; besides success/failure caches it now also stores `runs`, `nodes`, and `attempts` trace data, e.g. `{"success": {}, "failed": set(), "runs": {}, "nodes": {}, "attempts": {}}`.
 
 ### 1.3 Customization
-**Before customizing anything, it is strongly recommended to read [the design / implementation article](https://www.tr0y.wang/2024/03/04/parselmouth/) and the main code in `parselmouth.py` and `bypass_tools.py`.**
+**Before customizing anything, it is strongly recommended to read [the design / implementation article](https://www.tr0y.wang/2024/03/04/parselmouth/) and the main code in `parselmouth.py`, `bypass_tools.py`, `cli.py`, and `ui.py`.**
 
 Option 1: follow the article: [Customization Section](https://www.tr0y.wang/2024/03/04/parselmouth/#%E5%AE%9A%E5%88%B6%E5%8C%96%E5%BC%80%E5%8F%91)
 
@@ -62,6 +76,7 @@ Option 2:
 - If you need to support a new AST node type, add a new `visit_` method to `P9H` in `parselmouth.py`.
 - If payload validity must be checked by interacting with the target, override the `check` behavior. The convention is simple: return `[]` when the payload passes, and return a non-empty list when it fails. Ideally the list should contain the matched blocked strings, but any non-empty list also works if that is all you can get.
 - If you want to add a new bypass strategy for an existing AST type, add a new `by_` method to the corresponding bypass class in `bypass_tools.py`. Within the same class, bypass methods are tried in definition order, so earlier methods have higher priority.
+- If you want to change the CLI config panel, trace tree, or result summary, look at `ui.py`.
 
 #### Custom Bypass Functions
 As an example, suppose you want to transform `macr0phag3` into a Base64-decoding expression such as `__import__('base64').b64decode(b'bWFjcjBwaGFnMw==')`. You can dynamically attach a new `by_` method to `Bypass_String`:
@@ -87,7 +102,7 @@ bypass_tools.Bypass_String.by_base64.__qualname__ = "Bypass_String.by_base64"
 p9h.BLACK_CHAR = {"kwd": ["mac", "::", "by_char", "bytes", "chr", "dict"]}
 runner = p9h.P9H(
     "'macr0phag3'",
-    specify_bypass_map={"white": {"Bypass_String": ["by_base64"]}},
+    specify_bypass_map={"white": {"Bypass_String": "by_base64"}},
     verbose=2,
 )
 result = runner.visit()
@@ -109,7 +124,7 @@ python run_test.py
 ```
 
 #### Custom Check Functions
-By default, `check` only tests whether the generated payload hits the local blacklist:
+By default, `check` only performs a local blacklist test against the payload:
 
 ```python
 def check(payload, ignore_space=False):
@@ -118,6 +133,8 @@ def check(payload, ignore_space=False):
 
     return [i for i in BLACK_CHAR if i in str(payload)]
 ```
+
+Because `check` can be expensive in some real scenarios, such as sending a large number of HTTP requests, `p9h.check` is automatically wrapped with a cache when the first `P9H` instance is created. If you replace it with a custom oracle, you usually do not need to add extra caching manually.
 
 In real targets, payload validation often has to be done through HTTP requests. In that case, you can directly replace the global `p9h.check` and use the remote target as an oracle:
 

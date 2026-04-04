@@ -1,36 +1,56 @@
 import ast
-import json
 import re
 import sys
-import argparse
-import time
 import functools
 
-from colorama import Fore, Style
+from rich.text import Text
 
 import bypass_tools
-
-
-def put_color(string, color, bold=True):
-    if color == 'gray':
-        COLOR = Fore.LIGHTBLACK_EX
-    else:
-        COLOR = getattr(Fore, color.upper(), "WHITE")
-
-    style = Style.BRIGHT if bold and color != 'gray' else ""
-    return f'{style}{COLOR}{str(string)}{Style.RESET_ALL}'
+from ui import (
+    P9HRenderMixin,
+    RuntimeStatus,
+    colored_text,
+    console,
+    format_bypass_func as _format_bypass_func,
+    logo,
+    normalize_verbose,
+    richify,
+)
 
 
 def color_check(result):
-    hited_chr = check(result)
-    for hited in hited_chr:
-        result = result.replace(hited, f"{Style.BRIGHT}{Fore.YELLOW}{hited}")
+    result = str(result)
+    hits = check(result)
+    if not hits:
+        return True, colored_text(result, "green")
 
-    if hited_chr:
-        result += Fore.BLUE
+    hit_mask = [False] * len(result)
+    for hit in hits:
+        if not hit:
+            continue
+        start = 0
+        while True:
+            index = result.find(hit, start)
+            if index == -1:
+                break
+            for offset in range(index, min(index + len(hit), len(result))):
+                hit_mask[offset] = True
+            start = index + 1
 
-    c_result = put_color(result, "green")
-    return not bool(hited_chr), c_result
+    colored_result = Text(no_wrap=False, overflow="fold")
+    index = 0
+    while index < len(result):
+        is_hit = hit_mask[index]
+        end = index + 1
+        while end < len(result) and hit_mask[end] == is_hit:
+            end += 1
+        colored_result.append(
+            result[index:end],
+            style="warn" if is_hit else "green",
+        )
+        index = end
+
+    return False, colored_result
 
 
 def cache_check_func(func, maxsize=99999, extra_key_func=None):
@@ -65,11 +85,18 @@ def cache_check_func(func, maxsize=99999, extra_key_func=None):
 
 
 def check(payload, ignore_space=False):
+    """
+    检查 payload 中是否命中规则
+    可以被覆盖用于自定义检测逻辑
+    cache_check_func 会自动使用 lru_cache 来提速 check
+    """
+
     kwd = tuple(BLACK_CHAR.get("kwd", []))
     re_kwd = BLACK_CHAR.get("re_kwd", "")
     if not kwd and not re_kwd:
         # 无规则？提示一下
-        sys.exit(put_color(f"[!] rule is empty, do not need bypass", "red"))
+        console.print(colored_text("[!] rule is empty, do not need bypass", "red"))
+        raise SystemExit(1)
 
     payload = str(payload)
     kwd_check = [
@@ -94,7 +121,72 @@ check = cache_check_func(
 )
 
 
-class P9H(ast._Unparser):
+def normalize_specify_bypass_map(specify_bypass_map):
+    """
+    检查并规范化 specify_bypass_map
+    """
+
+    if specify_bypass_map is None:
+        return {}
+
+    if not isinstance(specify_bypass_map, dict):
+        raise ValueError("must be a dict")
+
+    normalized = {}
+    for mode, class_map in specify_bypass_map.items():
+        if mode not in ["white", "black"]:
+            raise ValueError("can only use keys `white` or `black`")
+
+        if class_map is None:
+            normalized[mode] = {}
+            continue
+
+        if not isinstance(class_map, dict):
+            raise ValueError(
+                f"`{mode}` must be like `{{'Bypass_Class': 'by_func1, by_func2, ...'}}`"
+            )
+
+        normalized_class_map = {}
+        for cls_name, func_names in class_map.items():
+            cls = vars(bypass_tools).get(cls_name)
+            if cls is None:
+                raise ValueError(f"bypass class not found: {cls_name}")
+
+            if isinstance(func_names, str):
+                func_names = [
+                    name.strip() for name in func_names.split(",") if name.strip()
+                ]
+            else:
+                raise ValueError(
+                    f"`{mode} {cls_name}` must be a comma-separated string of bypass functions"
+                )
+
+            if not func_names:
+                raise ValueError(
+                    f"`{mode} {cls_name}` has no bypass function"
+                )
+
+            # 有些 Bypass_Class 有些方法是动态生成的，需要特殊处理
+            missing_func_names = [
+                func_name
+                for func_name in func_names
+                if not hasattr(cls, func_name) and func_name not in (
+                    cls.dynamic_func_names() if hasattr(cls, "dynamic_func_names") else []
+                )
+            ]
+            if missing_func_names:
+                raise ValueError(
+                    f"bypass func not found in {cls_name}: {missing_func_names!r}"
+                )
+
+            normalized_class_map[cls_name] = func_names
+
+        normalized[mode] = normalized_class_map
+
+    return normalized
+
+
+class P9H(P9HRenderMixin, ast._Unparser):
     def __init__(
         self,
         source_code,
@@ -103,17 +195,18 @@ class P9H(ast._Unparser):
         bypass_history=None,
         min_len=False,
         min_set=False,
-        specify_bypass_map={},
+        specify_bypass_map=None,
+        status=None, # 用于实时状态面板
+        parent_attempt_id=None, # 用于 trace
     ):
         globals()["FORMAT_SPACE"] = ""
-        # 自动加上缓存机制
+        # 自动给 check 函数加上缓存机制
         globals()["check"] = (
             globals()["check"]
             if getattr(globals()["check"], "_p9h_cached", False)
             else cache_check_func(globals()["check"])
         )
         self.source_code = source_code
-        # print("source_code", depth, source_code)
         try:
             self.source_node = (
                 source_code
@@ -121,51 +214,48 @@ class P9H(ast._Unparser):
                 else ast.parse(source_code)
             )
         except Exception:
-            print(
-                put_color(f"[!] invalid python code:", "red"),
-                put_color(source_code, "white"),
+            console.print(
+                colored_text("[!] invalid python code:", "red"),
+                colored_text(source_code, "white"),
             )
             raise
 
-        self.verbose = verbose
-        if bypass_history == None:
-            self.bypass_history = []
-        else:
-            self.bypass_history = bypass_history
+        self.verbose = normalize_verbose(verbose)
+        self.bypass_history = bypass_history or {
+            "success": {},  # 已知成功绕过的 payload
+            "failed": set(),  # 已知无法绕过的 payload
+            "runs": {},  # 每次运行的记录
+            "nodes": {},  # 被拦截节点的记录
+            "attempts": {},  # 每次 bypass 尝试的记录
+            "next_run_id": 1,  # 下一个运行 ID
+            "next_node_id": 1,  # 下一个节点 ID
+            "next_attempt_id": 1,  # 下一个尝试 ID
+        }
 
         self.depth = depth
         self.min_len = min_len
         self.min_set = min_set
-        self.specify_bypass_map = specify_bypass_map
-
-        for _type in specify_bypass_map:
-            for cls_name in specify_bypass_map[_type]:
-                for func_name in specify_bypass_map[_type][cls_name]:
-                    if not (cls_name and func_name):
-                        sys.exit(
-                            put_color(
-                                "[x] white_bypass/black_bypass format is `class.func`",
-                                "red",
-                            )
-                        )
-
-                    cls = vars(bypass_tools).get(cls_name, None)
-                    if not cls:
-                        sys.exit(
-                            put_color(f"[x] bypass class not found: {cls_name}", "red")
-                        )
-
-                    func = vars(cls).get(func_name, None)
-                    if not func and not (
-                        hasattr(cls, "dynamic_func_names")
-                        and func_name in cls.dynamic_func_names()
-                    ):
-                        sys.exit(
-                            put_color(
-                                f"[x] bypass func not found: {func_name} in {cls_name}",
-                                "red",
-                            )
-                        )
+        self.specify_bypass_map = normalize_specify_bypass_map(specify_bypass_map)
+        self.status = status
+        self.parent_attempt_id = parent_attempt_id
+        self._active_attempt_id = None
+        self.root_node_ids = []
+        self.result = None
+        self.result_warnings = []
+        self.run_id = self._new_id("next_run_id")
+        run_source = ast.unparse(source_code) if isinstance(source_code, ast.AST) else str(source_code)
+        self.bypass_history["runs"][self.run_id] = {
+            "id": self.run_id,
+            "source": run_source,
+            "parent_attempt_id": self.parent_attempt_id,
+            "root_node_ids": self.root_node_ids,
+            "result": None,
+            "warnings": [],
+        }
+        if self.parent_attempt_id is not None:
+            self.bypass_history["attempts"][self.parent_attempt_id]["child_run_ids"].append(
+                self.run_id
+            )
 
         super().__init__()
 
@@ -195,189 +285,379 @@ class P9H(ast._Unparser):
             self.write(f"{quote_type}{string}{quote_type}")
         return result
 
-    def cprint(self, *args, depth=None, level="info"):
-        if level not in ["warn", "error"]:
-            if self.verbose < 1:
-                return
+    def _update_runtime_status(self, text=None, **fields):
+        """
+        P9H 给运行时状态栏发进度消息的统一出口
+        """
 
-            elif self.verbose == 1 and level != "info":
-                return
+        if self.status is None:
+            # 说明不需要实时 ui
+            return
 
-        color = {
-            "debug": "gray",
-            "info": "white",
-        }[level]
+        payload = {
+            "depth": self.depth,
+            "attempts": len(self.bypass_history["attempts"]),
+            "cache": (
+                f"{len(self.bypass_history['success'])}p/{len(self.bypass_history['failed'])}f"
+            ),
+        }
+        payload.update(fields)
+        self.status.update(text=text, **payload)
 
-        if depth is None:
-            depth = self.depth
+    def _new_id(self, key):
+        """
+        从 bypass_history 中创建一个新的自增 ID
+        """
 
-        print(put_color(f"{'  '*(depth)}[{level.upper()}]", color), *args)
+        id_ = self.bypass_history[key]
+        self.bypass_history[key] += 1
+        return id_
 
-    def try_bypass(self, bypass_funcs):
+    def _check_bypass_skip(self, cls_name, func_name):
+        """
+        检查 bypass 函数是否应被跳过，
+          - 跳过的话，返回跳过原因
+          - 不跳过的话，返回 None
+        """
+
+        sbm = self.specify_bypass_map
+        if "white" in sbm:
+            if cls_name in sbm["white"] and func_name not in sbm["white"][cls_name]:
+                return "white_skip"
+        if "black" in sbm:
+            if cls_name in sbm["black"] and func_name in sbm["black"][cls_name]:
+                return "black_skip"
+        return None
+
+    def _build_attempt_steps(self, attempt):
+        """
+        把当前 attempt 和它递归触发的子 attempt绕过尝试，
+        整理成一个 steps + helpers 的结构（-vv/-vvv 使用）
+          - steps: 这次 bypass 最终主要是靠哪几步走通的
+          - helpers: 为了让 steps 成立，还递归用了哪些手法
+        """
+
+        steps = [attempt["step"]]
+        helpers = []
+        seen = set(steps)
+
+        # 当前这个 attempt 可能触发了很多次子 P9H 运行
+        # 需要选出真正产出了当前 attempt 最终结果的那条子链
+        for run_id in reversed(attempt["child_run_ids"]):
+            run = self.bypass_history["runs"][run_id]
+            if run["result"] == attempt["result"]:
+                attempt["main_child_run_id"] = run_id
+                break
+
+        for run_id in attempt["child_run_ids"]:
+            # 顺着刚才的子 run 往下找它的所有节点
+            run = self.bypass_history["runs"][run_id]
+            use_main_step = run_id == attempt["main_child_run_id"]
+            for node_id in run["root_node_ids"]:
+                node = self.bypass_history["nodes"][node_id]
+                child_attempt_id = node["selected_attempt_id"]
+                if child_attempt_id is None:
+                    continue
+
+                child_attempt = self.bypass_history["attempts"][child_attempt_id]
+                child_steps = list(child_attempt["steps"])
+                if use_main_step and child_steps:
+                    # 把第一个 step 当作主链头
+                    head = child_steps.pop(0)
+                    if head not in seen:
+                        steps.append(head)
+                        seen.add(head)
+                    # 其余的舍弃，让 steps 保持简洁，只展示主链上的关键一步
+                    use_main_step = False
+
+                # 把其余子步骤都当作辅助信息放进 helpers
+                for step in [*child_steps, *child_attempt["helpers"]]:
+                    if step not in seen and step not in helpers:
+                        helpers.append(step)
+
+        return steps, helpers
+
+    def _new_node_record(self, raw_code, node_label, hits):
+        """
+        给当前这个被拦住的 AST 节点建一条 trace
+        """
+
+        node_id = self._new_id("next_node_id")
+        self.bypass_history["nodes"][node_id] = {
+            "id": node_id,
+            "raw": raw_code,
+            "label": richify(node_label),
+            "depth": self.depth + 1,
+            "hits": list(hits),
+            "attempt_ids": [],
+            "selected_attempt_id": None,
+            "steps": [],
+            "helpers": [],
+            "result": None,
+            "cache_status": None,
+            "cache_result": None,
+            "cache_steps": [],
+            "cache_helpers": [],
+        }
+        self.root_node_ids.append(node_id)
+        return node_id
+
+    def _get_bypass_warnings(self, method):
+        func = getattr(method, "__func__", method)
+        messages = getattr(func, "_p9h_warnings", ())
+        if not messages:
+            return []
+
+        if isinstance(messages, (str, dict)):
+            messages = [messages]
+
+        warnings = []
+        for message in messages:
+            if not message:
+                continue
+
+            if isinstance(message, dict):
+                text = str(message.get("message", "")).strip()
+                disable_hint = str(message.get("disable_hint", "")).strip()
+            else:
+                text = str(message).strip()
+                disable_hint = ""
+
+            if not text:
+                continue
+
+            warnings.append(
+                {
+                    "message": text,
+                    "disable_hint": disable_hint,
+                }
+            )
+
+        return warnings
+
+    def _collect_attempt_warnings(self, attempt_id, seen_attempt_ids=None, seen_messages=None):
+        if attempt_id is None:
+            return []
+
+        if seen_attempt_ids is None:
+            seen_attempt_ids = set()
+        if seen_messages is None:
+            seen_messages = set()
+
+        if attempt_id in seen_attempt_ids:
+            return []
+        seen_attempt_ids.add(attempt_id)
+
+        attempt = self.bypass_history["attempts"][attempt_id]
+        warnings = []
+        for warning in attempt.get("warnings", []):
+            key = (
+                warning.get("message", ""),
+                warning.get("disable_hint", ""),
+            )
+            if key in seen_messages:
+                continue
+            seen_messages.add(key)
+            warnings.append(warning)
+
+        for run_id in attempt["child_run_ids"]:
+            run = self.bypass_history["runs"][run_id]
+            for node_id in run["root_node_ids"]:
+                child_attempt_id = self.bypass_history["nodes"][node_id]["selected_attempt_id"]
+                warnings.extend(
+                    self._collect_attempt_warnings(
+                        child_attempt_id,
+                        seen_attempt_ids=seen_attempt_ids,
+                        seen_messages=seen_messages,
+                    )
+                )
+
+        return warnings
+
+    def collect_result_warnings(self):
+        seen_attempt_ids = set()
+        seen_messages = set()
+        warnings = []
+
+        for node_id in self.root_node_ids:
+            node = self.bypass_history["nodes"][node_id]
+            warnings.extend(
+                self._collect_attempt_warnings(
+                    node["selected_attempt_id"],
+                    seen_attempt_ids=seen_attempt_ids,
+                    seen_messages=seen_messages,
+                )
+            )
+
+        return warnings
+
+    def try_bypass(self, bypass_funcs, node):
+        """
+        尝试绕过当前节点
+        """
         old_len = len(self._source)
         bypass_funcs["by_raw"]()
         raw_code = "".join(self._source[old_len:])
-        self.cprint(
-            f"target payload: {put_color(raw_code, 'blue')}", depth=self.depth + 1
-        )
-        if not check(raw_code):
-            self.cprint(put_color(f"do not need bypass", "green"), depth=self.depth + 2)
+        node_label = self._node_label(node, raw_code)
+        hits = check(raw_code)
+        if not hits:
+            # 原始写法未命中规则，不需要绕过
             return raw_code
 
         # 清空修改，保护堆栈
         self._source = self._source[:old_len]
-        succ_cache = {
-            i["raw"]: i["result"] for i in self.bypass_history if i["is_succ"]
-        }
-        failed_cache = {
-            i["raw"]: i["result"] for i in self.bypass_history if not i["is_succ"]
-        }
-        if raw_code in succ_cache:
-            self.cprint(
-                f"already knew {put_color(raw_code, 'blue')} can bypass: {succ_cache[raw_code]}",
-                level="info",
-                depth=self.depth + 2,
-            )
-            result = succ_cache[raw_code]
+        node_id = self._new_node_record(raw_code, node_label, hits)
+        trace_node = self.bypass_history["nodes"][node_id]
+        node_status = self._status_node_label(node, raw_code)
+        self._update_runtime_status(
+            "blocked node",
+            node=node_status,
+        )
+
+        if raw_code in self.bypass_history["success"]:
+            # 说明之前已经成功绕过过，直接使用缓存结果
+            cached = self.bypass_history["success"][raw_code]
+            result = cached["result"]
+            trace_node["cache_steps"] = list(cached["steps"])
+            trace_node["cache_helpers"] = list(cached["helpers"])
+            trace_node["cache_status"] = "pass"
+            trace_node["cache_result"] = result
+            trace_node["result"] = result
             self._source += [result]
+            self._update_runtime_status(
+                "cache hit",
+                node=node_status,
+            )
             return result
 
-        if raw_code in failed_cache:
-            # 已知无法 bypass
-            self.cprint(
-                f"already knew {put_color(raw_code, 'blue')} cannot bypass",
-                level="info",
-                depth=self.depth + 2,
-            )
+        if raw_code in self.bypass_history["failed"]:
+            # 说明之前已经尝试过，无法绕过，直接返回原始代码
+            trace_node["cache_status"] = "fail"
+            trace_node["result"] = raw_code
             self._source += [raw_code]
+            self._update_runtime_status(
+                "cache miss",
+                node=node_status,
+            )
             return raw_code
 
+        # by_raw 没有实际的绕过效果，删除
         del bypass_funcs["by_raw"]
 
+        found = False
+        best_result = None
+        best_attempt_id = None
         # 逐个尝试 bypass
-        succeed = False
-        min_exp = "".join(map(chr, range(99999)))
         for func in bypass_funcs:
+            # 开始做一些准备工作
+            # 先完整登记进 trace 系统，并建立好递归上下文，然后才进入真正执行阶段
             cls_name, func_name = bypass_funcs[func].__qualname__.split(".")
+            step_name = _format_bypass_func(f"{cls_name}.{func}")
+            attempt_id = self._new_id("next_attempt_id")
+            # 构造当前 attempt 的相关信息
+            attempt = {
+                "id": attempt_id,  # 唯一 ID
+                "node_id": node_id,  # 所属节点 ID
+                "func": cls_name + "." + func,  # 完整 bypass 函数名
+                "step": func,  # 自身对应的步骤名
+                "steps": [],  # 归纳出的主链步骤
+                "helpers": [],  # 从递归子调用归纳出的辅助步骤
+                "main_child_run_id": None,  # 产出最终结果的主子运行 ID
+                "success": False,  # 是否成功绕过
+                "result": None,  # 返回的 payload
+                "reason": None,  # 未成功时的原因
+                "blocked_hits": [],  # 当前 result 仍命中的黑名单项
+                "child_run_ids": [],  # 触发的子运行 ID
+                "warnings": self._get_bypass_warnings(bypass_funcs[func]),  # 可能的适用性告警
+            }
+            self.bypass_history["attempts"][attempt_id] = attempt
+            self.bypass_history["nodes"][node_id]["attempt_ids"].append(attempt_id)
 
-            if "white" in self.specify_bypass_map:
-                if (
-                    cls_name in self.specify_bypass_map["white"]
-                    and func_name not in self.specify_bypass_map["white"][cls_name]
-                ):
-                    self.cprint(
-                        f"{cls_name}.{func_name} is not in white_bypass",
-                        level="debug",
-                        depth=self.depth + 2,
-                    )
-                    continue
+            skip_reason = self._check_bypass_skip(cls_name, func_name)
+            if skip_reason:
+                attempt["reason"] = skip_reason
+                continue
 
-            elif "black" in self.specify_bypass_map:
-                if (
-                    cls_name in self.specify_bypass_map["black"]
-                    and func_name in self.specify_bypass_map["black"][cls_name]
-                ):
-                    self.cprint(
-                        f"{cls_name}.{func_name} is in black_bypass",
-                        level="debug",
-                        depth=self.depth + 2,
-                    )
-                    continue
-
+            self._update_runtime_status(
+                "try bypass",
+                node=node_status,
+                step=step_name,
+            )
             old_len = len(self._source)
-            self.cprint(f"try {put_color(func, 'cyan')}", level="debug", depth=self.depth+2)
-            # 执行 bypass 函数
-            result = bypass_funcs[func]()
+            prev_attempt_id = self._active_attempt_id
+            self._active_attempt_id = attempt["id"]
+
+            # 实际执行 bypass 函数
+            try:
+                result = bypass_funcs[func]()
+            finally:
+                self._active_attempt_id = prev_attempt_id
             self._source = self._source[:old_len]
 
             if result is None:
-                self.bypass_history.append(
-                    {
-                        "is_succ": False,
-                        "raw": raw_code,
-                        "func": cls_name + "." + func,
-                        "result": None,
-                    }
-                )
+                attempt["reason"] = "not_applicable"
                 continue
 
-            hited_chr = check(result)
-            _depth = self.depth + 3 if self.verbose >= 2 else self.depth + 2
-            if hited_chr:
-                self.cprint(
-                    f"use {put_color(func, 'cyan')} cannot bypass {put_color(raw_code, 'blue')}, hited: {put_color(hited_chr, 'yellow')}",
-                    level="debug",
-                    depth=_depth,
-                )
-                self.bypass_history.append(
-                    {
-                        "is_succ": False,
-                        "raw": raw_code,
-                        "func": cls_name + "." + func,
-                        "result": None,
-                    }
-                )
+            attempt["result"] = result
+            blocked = check(result)
+            if blocked:
+                attempt["reason"] = "blocked"
+                attempt["blocked_hits"] = list(blocked)
             else:
-                self.cprint(
-                    f"use {put_color(func, 'cyan')} {put_color('bypass success', 'green')}",
-                    depth=_depth,
+                attempt["success"] = True
+                self._update_runtime_status(
+                    "bypass succeeded",
+                    node=node_status,
+                    step=step_name,
                 )
-                self.bypass_history.append(
-                    {
-                        "is_succ": True,
-                        "raw": raw_code,
-                        "func": cls_name + "." + func,
-                        "result": result,
-                    }
-                )
+                attempt["steps"], attempt["helpers"] = self._build_attempt_steps(attempt)
                 if self.min_len:
-                    if len(result) < len(min_exp):
-                        self.cprint(
-                            f"found shortest exp, length is {len(result)}",
-                            depth=_depth,
-                        )
-                        min_exp = result
-                        succeed = True
-                    else:
-                        self.cprint(
-                            f"new exp length is {len(result)}, abort it",
-                            level="debug",
-                            depth=_depth,
-                        )
+                    if best_result is None or len(result) < len(best_result):
+                        best_result = result
+                        best_attempt_id = attempt["id"]
+                        found = True
                 elif self.min_set:
                     # TODO
                     # 这里需要考虑到历史 bypass 时用到的字符
                     # 否则就是贪心算法，容易陷入局部最优
                     # 先用贪心吧，后面再优化
-                    # print(self.bypass_history, result)
-                    if len(set(result)) < len(set(min_exp)):
-                        self.cprint(
-                            f"found min char set exp, size is {len(set(result))}",
-                            depth=_depth,
-                        )
-                        min_exp = result
-                        succeed = True
+                    if best_result is None or len(set(result)) < len(set(best_result)):
+                        best_result = result
+                        best_attempt_id = attempt["id"]
+                        found = True
                 else:
-                    min_exp = result
-                    succeed = True
+                    best_result = result
+                    best_attempt_id = attempt["id"]
+                    found = True
                     break
 
-                self.cprint(
-                    put_color(raw_code, "blue"),
-                    "->",
-                    put_color(result, "green"),
-                    depth=_depth,
-                )
-
-        if succeed is not True:
-            # 说明未成功
-            self.cprint(
-                put_color(f"cannot bypass: {raw_code}", "yellow"), depth=self.depth + 2
-            )
-
+        if not found:
             result = raw_code
+            self.bypass_history["nodes"][node_id]["result"] = result
+            self.bypass_history["failed"].add(raw_code)
+            self._update_runtime_status(
+                "all bypasses failed",
+                node=node_status,
+                step=None,
+            )
         else:
-            result = min_exp
+            result = best_result
+            node = self.bypass_history["nodes"][node_id]
+            node["selected_attempt_id"] = best_attempt_id
+            node["result"] = result
+            best_attempt = self.bypass_history["attempts"][best_attempt_id]
+            node["steps"] = list(best_attempt["steps"])
+            node["helpers"] = list(best_attempt["helpers"])
+            self.bypass_history["success"][raw_code] = {
+                "result": result,
+                "steps": list(node["steps"]),
+                "helpers": list(node["helpers"]),
+            }
+            self._update_runtime_status(
+                "found best bypass",
+                node=node_status,
+                step=_format_bypass_func(best_attempt["func"]),
+            )
 
         self._source += [result]
         return result
@@ -405,10 +685,24 @@ class P9H(ast._Unparser):
         self._source.extend(_text)
 
     def visit(self):
-        self.cprint("try bypass:", put_color(self.source_code, "blue"), level="info")
         self._source = []
+        self._update_runtime_status(
+            "rewrite source",
+            node=None,
+            step=None,
+        )
         self.traverse(self.source_node)
-        return "".join(self._source)
+        self.result = "".join(self._source)
+        self.bypass_history["runs"][self.run_id]["result"] = self.result
+        self.result_warnings = self.collect_result_warnings()
+        self.bypass_history["runs"][self.run_id]["warnings"] = list(self.result_warnings)
+        self._update_runtime_status(
+            "rewrite complete",
+            node=None,
+            step=None,
+        )
+        self._print_result()
+        return self.result
 
     def visit_Module(self, node):
         self._type_ignores = {
@@ -425,7 +719,8 @@ class P9H(ast._Unparser):
             dict(
                 bypass_tools.Bypass_Name(BLACK_CHAR, node, p9h_self=self).get_map(),
                 **{"by_raw": _by_raw},
-            )
+            ),
+            node,
         )
 
     def visit_Constant(self, node):
@@ -458,7 +753,7 @@ class P9H(ast._Unparser):
 
         func_map = bypass_cls_map(BLACK_CHAR, node, p9h_self=self).get_map()
         func_map["by_raw"] = _by_raw
-        return self.try_bypass(func_map)
+        return self.try_bypass(func_map, node)
 
     def visit_Attribute(self, node):
         def _by_raw():
@@ -481,7 +776,8 @@ class P9H(ast._Unparser):
                     BLACK_CHAR, node, p9h_self=self
                 ).get_map(),
                 **{"by_raw": _by_raw},
-            )
+            ),
+            node,
         )
 
     def visit_Subscript(self, node):
@@ -503,7 +799,8 @@ class P9H(ast._Unparser):
                     BLACK_CHAR, node, p9h_self=self
                 ).get_map(),
                 **{"by_raw": _by_raw},
-            )
+            ),
+            node,
         )
 
     def visit_keyword(self, node):
@@ -520,7 +817,8 @@ class P9H(ast._Unparser):
             dict(
                 bypass_tools.Bypass_Keyword(BLACK_CHAR, node, p9h_self=self).get_map(),
                 **{"by_raw": _by_raw},
-            )
+            ),
+            node,
         )
 
     def visit_Call(self, node):
@@ -531,7 +829,7 @@ class P9H(ast._Unparser):
                 comma = False
                 for e in node.args:
                     if comma:
-                        self.write(f", ")
+                        self.write(", ")
                     else:
                         comma = True
 
@@ -539,7 +837,7 @@ class P9H(ast._Unparser):
 
                 for e in node.keywords:
                     if comma:
-                        self.write(f", ")
+                        self.write(", ")
                     else:
                         comma = True
 
@@ -549,7 +847,8 @@ class P9H(ast._Unparser):
             dict(
                 bypass_tools.Bypass_Call(BLACK_CHAR, node, p9h_self=self).get_map(),
                 **{"by_raw": _by_raw},
-            )
+            ),
+            node,
         )
 
     def visit_UnaryOp(self, node):
@@ -564,7 +863,8 @@ class P9H(ast._Unparser):
                 dict(
                     bypass_tools.Bypass_Int(BLACK_CHAR, node, p9h_self=self).get_map(),
                     **{"by_raw": lambda: self.write(str(node.value))},
-                )
+                ),
+                node,
             )
 
         with self.require_parens(operator_precedence, node):
@@ -614,7 +914,8 @@ class P9H(ast._Unparser):
             dict(
                 bypass_tools.Bypass_BoolOp(BLACK_CHAR, node, p9h_self=self).get_map(),
                 **{"by_raw": _by_raw},
-            )
+            ),
+            node,
         )
 
 
@@ -623,129 +924,17 @@ sys.setrecursionlimit(Recursion_LIMIT)
 BLACK_CHAR = {}
 FORMAT_SPACE = None
 
-logo = (
-    put_color(
-        """   ▏ ▏  \n"""
-        """ (o  O) \n"""
-        """  \\__/  {}\n"""
-        """   ▕    {}\n""",
-        "green",
-    ).replace("▕", put_color("▕", "red"))
-).format(put_color("parselmouth", "gray"), put_color("v2.0", "cyan"))
-
-if __name__ == "__main__":
-    print(logo)
-    parser = argparse.ArgumentParser(
-        description="parselmouth, automated python sandbox escape payload bypass framework"
-    )
-    parser.add_argument("--payload", required=True, help="bypass rule")
-    parser.add_argument("-v", action="count", default=0, help="verbose level")
-    parser.add_argument("--re-rule", default="", help="rule in regex")
-    parser.add_argument("--rule", nargs="+", default="", help="rules")
-    parser.add_argument(
-        "--specify-bypass",
-        default="{}",
-        help='eg. {"white": {"Bypass_String": ["by_dict"]}, "black": []}',
-    )
-    parser.add_argument("--shortest", action="store_true", help="found shortest exp")
-    parser.add_argument(
-        "--minset", action="store_true", help="found minimal character set exp"
-    )
-    args = parser.parse_args()
-
-    if args.shortest and args.minset:
-        sys.exit(put_color("[x] --shortest or --minset, not both", "red"))
-
-    print(f"[*] payload: {put_color(args.payload, 'blue')}")
-    print(
-        f"[*] rules\n",
-        f"  [-] keyword rule: {put_color(args.rule, 'blue')}\n",
-        f"  [-] regex rule: {put_color(args.re_rule, 'blue')}",
-    )
-
-    try:
-        specify_bypass_map = json.loads(args.specify_bypass)
-        assert not specify_bypass_map or "white" in specify_bypass_map or "black" in specify_bypass_map
-        assert all(
-            [
-                type(list(j.items())[0][1]) is list
-                for j in [i[1] for i in specify_bypass_map.items() if i[1]]
-            ]
-        )
-    except Exception as e:
-        sys.exit(
-            put_color(
-                f"""[!] --specify-bypass is invalid: {e}."""
-                """eg. --specify-bypass '{"white": {"Bypass_Attribute": ["by_vars"]}}'""",
-                "red",
-            )
-        )
-
-    print(f"[*] specify bypass map: {specify_bypass_map}")
-    if args.shortest or args.minset:
-        print(
-            f"[*] min type: {put_color('shortest' if args.shortest else 'minimal char set', 'white')}"
-        )
-    print(f"[*] verbose: {put_color(args.v, 'white')}")
-    print(put_color("\n[*] hacking....\n", "green"))
-
-    if args.re_rule:
-        try:
-            re.compile(args.re_rule)
-        except Exception:
-            sys.exit(put_color("[x] --re-rule regex is invalid", "red"))
-
-        if re.findall(args.re_rule, "𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫"):
-            print(
-                put_color(
-                    "[!] regex can match unicode numbers, use `\\d` carefully", "yellow"
-                )
-            )
-
-        if re.findall(args.re_rule, "ᑐ ᑌ ᑎ ᕮ"):
-            print(put_color("[!] regex is toooooo broad", "yellow"))
-
-    BLACK_CHAR = {"kwd": args.rule, "re_kwd": args.re_rule}
-    p9h = P9H(
-        args.payload,
-        verbose=args.v,
-        specify_bypass_map=specify_bypass_map,
-        min_len=args.shortest,
-        min_set=args.minset,
-    )
-    start_ts = time.time()
-    try:
-        exp = p9h.visit()
-    except KeyboardInterrupt:
-        sys.exit(
-            put_color("\r\n[!] exit? yes, master\n", "yellow")
-            + ("[*] cost " + put_color(f"{round(time.time()-start_ts, 2)}s", "cyan"))
-        )
-
-    end_ts = time.time()
-    result, c_payload = color_check(exp)
-
-    print(
-        "[*] result:",
-        put_color("success" if result else "failed", "green" if result else "red"),
-    )
-    print(f"[*] exp length is {put_color(len(exp), 'cyan')}")
-    print(f"[*] exp char set size is {put_color(len(set(exp)), 'cyan')}")
-    print("[*] cost", put_color(f"{round(end_ts-start_ts, 2)}s", "cyan"))
-    print("[*]", put_color("used bypass func", "white"))
-    used_func = {}
-    for history in p9h.bypass_history:
-        if history["is_succ"]:
-            cls, func = history["func"].split(".")
-            if cls not in used_func:
-                used_func[cls] = []
-            if func not in used_func[cls]:
-                used_func[cls].append(func)
-
-    if not used_func:
-        print(f"  [-] {put_color('None', 'gray')}")
-    else:
-        for cls in used_func:
-            print(f"  [-] {put_color(cls, 'cyan')}: {put_color(used_func[cls], 'blue')}")
-
-    print(f"\n[*]", put_color(args.payload, "blue"), "=>", c_payload)
+__all__ = [
+    "BLACK_CHAR",
+    "P9H",
+    "RuntimeStatus",
+    "bypass_tools",
+    "cache_check_func",
+    "check",
+    "color_check",
+    "colored_text",
+    "console",
+    "logo",
+    "normalize_specify_bypass_map",
+    "normalize_verbose",
+]

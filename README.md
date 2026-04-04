@@ -12,16 +12,28 @@ English README: [README_EN.md](README_EN.md)
 - 安装依赖: `pip install -r requirements`
 
 ### 1.1 通过 CLI 使用
-- 获取帮助信息：`python parselmouth.py -h`
-- 指定 payload 与 rule: `python parselmouth.py  --payload "__import__('os').popen('whoami').read()" --rule "__" "." "'" '"' "read" "chr"`
+- CLI 入口为 `cli.py`；`parselmouth.py` 主要作为 import 时的核心库使用
+- 获取帮助信息：`python cli.py -h`
+- 指定 payload 与 rule: `python cli.py --payload "__import__('os').popen('whoami').read()" --rule "__" "." "'" '"' "read" "chr"`
   - 当然，很多时候规则字符比较多，所以你也可以考虑通过参数 `--re-rule` 来指定正则表达式格式的黑名单规则，例如 `--re-rule '[0-9]'` 等价于 `--rule "0" "1" "2" "3" "4" "5" "6" "7" "8" "9"`
   - 友情提示，通过 win 命令行使用，如果需要指定 `"`，则要用 `"\""`，如果用 `'"'` 会出现非预期情况（我大概知道是啥原因但是我懒得管 win :)
-- 可以通过 `--specify-bypass` 指定 bypass function 的黑白名单；例如如果不希望 int 通过 unicode 字符的规范化进行 bypass，可以指定参数: `--specify-bypass '{"black": {"Bypass_Int": ["by_unicode"]}}'`
+- 可以通过 `--specify-bypass` 指定 bypass function 的黑白名单；例如如果不希望 int 通过 unicode 字符的规范化进行 bypass，可以指定参数: `--specify-bypass '{"black": {"Bypass_Int": "by_unicode"}}'`
 - `--shortest`：寻找最小的 exp
 - `--minset`：寻找最小字符集的 exp
-- 通过指定参数 `-v` 可以增加输出的信息；通过 `-vv` 可以输出 debug 信息，但通常是不需要的
+- CLI 输出基于 Rich，默认会显示运行配置、实时状态和最终摘要
+- 通过 `-v/-vv/-vvv` 控制过程输出分级：
+  - `0`（默认）：只看运行摘要
+  - `-v`：看简洁信息
+  - `-vv`：看目标 payload 与最终选中的尝试链路
+  - `-vvv`：看详细的尝试过程
+- 注意：某些 bypass 会附带 payload warning，因为本地 bypass 无法预知实际情况，最终结果面板会提示适用风险，并给出可直接复制的禁用配置
 
-在定制化 bypass 函数之后，如果想做测试，可以将测试的 payload、rule、answer 按照放在 `test_case.py` 里面，然后通过 `python run_test.py` 进行测试
+在定制化 bypass 函数之后，建议至少跑一下这两类测试：
+
+- `python run_test.py`：doctest 风格的功能回归测试
+- `python stress_test.py`：遍历当前 bypass 方法的覆盖测试
+- `python stress_test.py --extended`：额外跑深度/长度压力 case
+- `python stress_test.py --match "Bypass_Subscript"`：只跑指定类别的 case
 
 ### 1.2 通过 import 使用
 ```python
@@ -32,7 +44,7 @@ p9h.BLACK_CHAR = {"kwd": [".", "'", '"']}
 # p9h.BLACK_CHAR = {"re_kwd": "\.|'|\""}  # 或者这样
 runner = p9h.P9H(
     "__import__('os').popen('whoami').read()",
-    specify_bypass_map={"black": {"Bypass_Name": ["by_unicode"]}},
+    specify_bypass_map={"black": {"Bypass_Name": "by_unicode"}},
     min_len=False, verbose=0,
 )
 result = runner.visit()
@@ -45,14 +57,20 @@ if status:
 
 `p9h.P9H` 关键参数解释：
 - `source_code`: 需要 bypass 的 payload
-- `specify_bypass_map`: 指定 bypass function 的黑白名单；例如如果不希望变量名通过 unicode 字符的规范化进行 bypass，可以传参 `{"black": {"Bypass_Name": ["by_unicode"]}}`
-- `min_len`: 寻找最小的 exp
+- `specify_bypass_map`: 指定 bypass function 的黑白名单；例如如果不希望变量名通过 unicode 字符的规范化进行 bypass，可以传参 `{"black": {"Bypass_Name": "by_unicode"}}`；多个函数请写成 `"by_func1, by_func2"` 这种逗号分隔字符串
+- `min_len`: 寻找最短的 exp
+- `min_set`: 寻找最小字符集的 exp
 - `verbose`: 输出的详细程度（`0` ~ `3`）
+  - `0`: 只输出最终摘要
+  - `1`: 输出简洁的 bypass 进度
+  - `2`: 输出目标 payload 和最终选中的尝试链路
+  - `3`: 输出详细的尝试过程
+- `status`: 可选；传入 `p9h.RuntimeStatus(p9h.console)` 后，可以在自行嵌入时也启用实时状态栏
 - `depth`: 通常情况下不需要使用这个参数；打印信息时所需要的缩进数量
-- `bypass_history`: 通常情况下不需要使用这个参数；用于缓存 `可以 bypass` 和 `不可以 bypass` 的已知情况，值示例 `{"success": {}, "failed": []}`
+- `bypass_history`: 通常情况下不需要手动传；现在除了成功/失败缓存之外，还会记录 `runs`、`nodes`、`attempts` 等 trace 数据，值示例 `{"success": {}, "failed": set(), "runs": {}, "nodes": {}, "attempts": {}}`
 
 ### 1.3 定制化使用
-**在定制化之前，最好先阅读下[这篇解释原理的文章](https://www.tr0y.wang/2024/03/04/parselmouth/)以及 `parselmouth.py`、`bypass_tools.py` 的主要代码**
+**在定制化之前，最好先阅读下[这篇解释原理的文章](https://www.tr0y.wang/2024/03/04/parselmouth/)以及 `parselmouth.py`、`bypass_tools.py`、`cli.py`、`ui.py` 的主要代码**
 
 方法一：参考文章 [传送门](https://www.tr0y.wang/2024/03/04/parselmouth/#%E5%AE%9A%E5%88%B6%E5%8C%96%E5%BC%80%E5%8F%91)
 
@@ -60,6 +78,7 @@ if status:
 - 要新增一个 ast 类型的识别与处理，需要在 `parselmouth.py` 中的 `P9H` 新增一个 `visit_` 方法
 - 如果希望通过与目标交互的方式进行 payload 检查，可以改写 check 方法，原则是如果检查通过返回空 `[]`；如果检查不通过的话，最好是返回不通过的字符，如果条件有限，返回任意不为空的列表也可以
 - 对已有的 ast 类型，需要新增不同的处理函数，则需要在 `bypass_tools.py` 中找到对应的 bypass 类型，并新增一个 `by_` 开头的方法。同一个类下的 bypass 函数，使用顺序取决于对应类中定义的顺序，先被定义的函数会优先尝试进行 bypass
+- 如果希望调整 CLI 的配置面板、trace tree 或结果摘要，可以看 `ui.py`
 
 #### 自定义 bypass 函数
 以字符串 bypass 为例。假设希望将 `macr0phag3` 转为 base64 解码语句 `__import__('base64').b64decode(b'bWFjcjBwaGFnMw==')`，则可以给 `bypass_tools.py` 的 `Bypass_String` 动态挂一个新的 `by_` 方法：
@@ -85,7 +104,7 @@ bypass_tools.Bypass_String.by_base64.__qualname__ = "Bypass_String.by_base64"
 p9h.BLACK_CHAR = {"kwd": ["mac", "::", "by_char", "bytes", "chr", "dict"]}
 runner = p9h.P9H(
     "'macr0phag3'",
-    specify_bypass_map={"white": {"Bypass_String": ["by_base64"]}},
+    specify_bypass_map={"white": {"Bypass_String": "by_base64"}},
     verbose=2,
 )
 result = runner.visit()
@@ -107,7 +126,7 @@ python run_test.py
 ```
 
 #### 自定义检查函数
-默认的 `check` 只是本地检查 payload 是否命中黑名单：
+默认的 `check` 会根据 `kwd` / `re_kwd` 在本地检查 payload 是否命中黑名单：
 
 ```python
 def check(payload, ignore_space=False):
@@ -116,6 +135,8 @@ def check(payload, ignore_space=False):
 
     return [i for i in BLACK_CHAR if i in str(payload)]
 ```
+
+由于 check 有时候测试成本很高（例如触发大量的网络请求等），因此 `p9h.check` 在第一次创建 `P9H` 时会自动包上一层缓存加速；如果你替换成自定义 oracle，一般不需要额外手动做缓存加速处理。
 
 但在真实场景里，payload 往往需要通过网络请求去验证。比如目标是一个 web 应用，此时可以直接改写全局的 `p9h.check`，把目标服务当成 oracle：
 

