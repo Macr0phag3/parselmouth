@@ -195,6 +195,12 @@ def test_Name():
     >>> _test = functools.partial(_test, "Bypass_Name")
     >>> # ---------------------------------------------------
 
+    >>> _test("by_ligature", "system", ["st", ], "st")
+    syﬆem
+
+    >>> _test("by_ligature", "office", ["ffi", ], "ffi")
+    oﬃce
+
     >>> _test("by_unicode", "__import__", ["__", ], "__")
     _＿import_＿
 
@@ -251,6 +257,12 @@ def test_Attribute():
     >>> _test = functools.partial(_test, "Bypass_Attribute")
     >>> # ---------------------------------------------------
 
+    >>> _test("by_ligature", "os.system", ["st", ], "st")
+    os.syﬆem
+
+    >>> _test("by_unicode", "os.system", ["sys", ], "sys")
+    os.𝒔ystem
+
     >>> _test("by_getattr", "os.system", [".", ], r"\\.")
     getattr(os,'system')
 
@@ -295,6 +307,9 @@ def test_Keyword():
     """
     >>> _test = functools.partial(_test, "Bypass_Keyword")
     >>> # ---------------------------------------------------
+
+    >>> _test("by_ligature", "dict(system=1)", ["st", ], "st")
+    dict(syﬆem=1)
 
     >>> _test("by_unicode", "dict(abc=1)", ["abc", ], "abc")
     dict(𝒂bc=1)
@@ -396,6 +411,12 @@ def test_Combo():
 
     >>> maps = {"Bypass_Call": "by_builtins_item"}; _test(..., "__import__('os')", [], "^__import__[(]", maps=maps)
     __builtins__['__import__']('os')
+
+    >>> maps = {"Bypass_Call": "by_ligature, by_unicode"}; _test(..., "os.system('id')", ["st", "os"], "st|os", maps=maps)
+    𝒐s.syﬆem('id')
+
+    >>> maps = {"Bypass_Call": "by_unicode", "Bypass_Attribute": "by_unicode"}; _test(..., "os.system('id')", ["sys"], "sys", maps=maps)
+    os.𝒔ystem('id')
 
     >>> # ----- Name -----
     >>> maps = {"Bypass_Name": "by_builtins_attr", "Bypass_String": "by_char_add, by_char", "Bypass_Attribute": "by_getattr"}; _test(..., "__import__", [".", "import", '"', "'"], r"\\.|import|'|\\\"", maps=maps)

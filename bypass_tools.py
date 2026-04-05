@@ -6,6 +6,7 @@ import functools
 import copy
 import builtins
 import types
+import unicodedata
 
 import parselmouth as p9h
 from expression_solver import find_expression
@@ -20,9 +21,6 @@ def get_builtin_func_self_names():
 
     return tuple(sorted(result, key=lambda item: (len(item), item)))
 
-
-BUILTIN_FUNC_SELF_NAMES = get_builtin_func_self_names()
-
 def get_builtin_doc_name():
     result = []
     for name in dir(builtins):
@@ -32,7 +30,52 @@ def get_builtin_doc_name():
 
     return tuple(sorted(result, key=lambda item: (len(item), item)))
 
+def get_multi_char_items():
+    result = {}
+    allowed = set(string.ascii_letters + string.digits + "_")
+    for codepoint in range(0x110000):
+        char = chr(codepoint)
+        normalized = unicodedata.normalize("NFKC", char)
+        if len(normalized) <= 1:
+            continue
+
+        if any(i not in allowed for i in normalized):
+            continue
+
+        if not char.isidentifier():
+            continue
+
+        if not normalized.isidentifier():
+            continue
+
+        result.setdefault(normalized, []).append(char)
+
+    preferred = {
+        normalized: max(chars)
+        for normalized, chars in result.items()
+    }
+
+    return tuple(sorted(preferred.items(), key=lambda item: (-len(item[0]), item[0])))
+
 BUILTIN_DOC_NAMES = get_builtin_doc_name()
+BUILTIN_SELF_NAMES = get_builtin_func_self_names()
+MULTI_CHAR_ITEMS = get_multi_char_items()
+
+def replace_with_ligature(identifier):
+    """
+    连字符替换
+    """
+    result = identifier
+    for normalized, ligature in MULTI_CHAR_ITEMS:
+        candidate = result.replace(normalized, ligature)
+        if candidate == result:
+            continue
+
+        result = candidate
+        if not p9h.check(result):
+            return result
+
+    return None
 
 
 def payload_warning(*messages):
@@ -570,6 +613,10 @@ class Bypass_Name(_Bypass):
         self.node._value = getattr(self.node, "id")
 
     @recursion_protect
+    def by_ligature(self):
+        return replace_with_ligature(self.node._value)
+
+    @recursion_protect
     def by_unicode(self):
         umap = dict(
             zip(
@@ -634,7 +681,7 @@ class Bypass_Name(_Bypass):
 
         avail_builtin_func_names = [
             builtin_func_name
-            for builtin_func_name in BUILTIN_FUNC_SELF_NAMES
+            for builtin_func_name in BUILTIN_SELF_NAMES
             if builtin_func_name != name and not p9h.check(builtin_func_name)
         ]
 
@@ -679,6 +726,42 @@ class Bypass_Attribute(_Bypass):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.node._value = [getattr(self.node, "value"), getattr(self.node, "attr")]
+
+    def _build_attr_access(self, attr_name):
+        node = self.node._value[0]
+        value_exp = self.P9H(node).visit()
+        if isinstance(node, ast.Constant) and isinstance(node.value, int):
+            value_exp += " "
+        elif not isinstance(
+            # 这些类型不用加括号
+            node,
+            (
+                ast.Name,ast.Attribute, ast.Call, ast.Subscript, ast.Constant,
+                ast.List, ast.Tuple, ast.Dict, ast.Set,
+                ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
+            ),
+        ):
+            value_exp = f"({value_exp})"
+
+        return f"{value_exp}.{attr_name}"
+
+    @recursion_protect
+    def by_ligature(self):
+        _, attr_name = self.node._value
+        attr_candidate = replace_with_ligature(attr_name)
+        if attr_candidate is None:
+            return None
+
+        return self._build_attr_access(attr_candidate)
+
+    @recursion_protect
+    def by_unicode(self):
+        _, attr_name = self.node._value
+        attr_candidate = Bypass_Name(
+            p9h.BLACK_CHAR, ast.Name(attr_name), self.p9h_self
+        ).by_unicode()
+
+        return self._build_attr_access(attr_candidate)
 
     @recursion_protect
     def by_getattr(self):
@@ -868,6 +951,18 @@ class Bypass_Keyword(_Bypass):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.node._value = (getattr(self.node, "arg"), getattr(self.node, "value"))
+
+    @recursion_protect
+    def by_ligature(self):
+        arg, value = self.node._value
+        if arg is None:
+            return None
+
+        result = Bypass_Name(p9h.BLACK_CHAR, ast.Name(arg), self.p9h_self).by_ligature()
+        if result is None:
+            return None
+
+        return result + "=" + self.P9H(value).visit()
 
     @recursion_protect
     def by_unicode(self):

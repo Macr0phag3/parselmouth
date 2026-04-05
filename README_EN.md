@@ -229,6 +229,7 @@ Currently supported:
 
 | Class | Method | Payload | Bypass | Notes |
 | ----- | ------ | ------- | ------ | ----- |
+| Bypass_Name | by_ligature | `system` | `syﬆem` | replace identifier fragments with NFKC ligature characters |
 | Bypass_Name | by_unicode | `__import__` | `_＿import_＿` | unicode bypass |
 | Bypass_Name | by_builtins_attr | `__import__` | `__builtins__.__import__` | fetch the name from module-shaped `__builtins__` |
 | Bypass_Name | by_builtins_item | `__import__` | `__builtins__['__import__']` | fetch the name from dict-shaped `__builtins__` |
@@ -239,6 +240,8 @@ Currently supported:
 | Class | Method | Payload | Bypass | Notes |
 | ----- | ------ | ------- | ------ | ----- |
 | Bypass_String | by_doc_index | `'system'` | `help.__doc__[...]+...` | build strings by slicing available builtin `__doc__` text |
+| Bypass_Attribute | by_ligature | `os.system` | `os.syﬆem` | replace attribute-name fragments with NFKC ligature characters |
+| Bypass_Attribute | by_unicode | `os.system` | `os.𝒔ystem` | unicode bypass for attribute names |
 | Bypass_Attribute | by_getattr | `str.find` | `getattr(str, 'find')` | getattr-based bypass, related idea by [@chi111i](https://github.com/chi111i) |
 | Bypass_Attribute | by_vars | `str.find` | `vars(str)["find"]` | vars-based bypass |
 | Bypass_Attribute | by_dict_attr | `str.find` | `str.__dict__["find"]` | `__dict__`-based bypass |
@@ -250,10 +253,11 @@ Currently supported:
 
 | Class | Method | Payload | Bypass | Notes |
 | ----- | ------ | ------- | ------ | ----- |
-| Bypass_Call | by_builtin_func_self / by_getattr / by_vars ... | `__import__('os')` / `os.system(1)` | `id.__self__.__import__('os')` / `vars(os)['system'](1)` | dynamically wraps available bypasses for the callee, then lets `try_bypass` choose |
+| Bypass_Call | by_ligature / by_unicode / by_builtin_func_self / by_getattr / by_vars ... | `__import__('os')` / `os.system(1)` | `id.__self__.__import__('os')` / `os.syﬆem(1)` / `os.𝒔ystem(1)` / `vars(os)['system'](1)` | dynamically wraps available bypasses for the callee, then lets `try_bypass` choose |
 
 | Class | Method | Payload | Bypass | Notes |
 | ----- | ------ | ------- | ------ | ----- |
+| Bypass_Keyword | by_ligature | `dict(system=1)` | `dict(syﬆem=1)` | replace keyword-argument name fragments with NFKC ligature characters |
 | Bypass_Keyword | by_unicode | `str(object=1)` | `str(ᵒbject=1)` | unicode bypass |
 
 | Class | Method | Payload | Bypass | Notes |

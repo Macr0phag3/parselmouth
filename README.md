@@ -232,6 +232,7 @@ if __name__ == "__main__":
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
+| Bypass_Name    | by_ligature   | `system` | `syﬆem` | 利用 NFKC 连字字符替换标识符片段 |
 | Bypass_Name    | by_unicode   | `__import__` | `_＿import_＿` | unicode 绕过|
 | Bypass_Name    | by_builtins_attr   | `__import__` | `__builtins__.__import__` | 从模块形态的 `__builtins__` 获取 name |
 | Bypass_Name    | by_builtins_item   | `__import__` | `__builtins__['__import__']` | 从字典形态的 `__builtins__` 获取 name |
@@ -242,6 +243,8 @@ if __name__ == "__main__":
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
 | Bypass_String  | by_doc_index | `'system'` | `help.__doc__[...]+...` | 从可用 builtin 的 `__doc__` 文本中切字符拼字符串 |
+| Bypass_Attribute    | by_ligature   | `os.system` | `os.syﬆem` | 利用 NFKC 连字字符替换属性名 |
+| Bypass_Attribute    | by_unicode   | `os.system` | `os.𝒔ystem` | unicode 绕过属性名拦截 |
 | Bypass_Attribute    | by_getattr   | `str.find` | `getattr(str, 'find')` | getattr 绕过，相关思路参考 [@chi111i](https://github.com/chi111i) |
 | Bypass_Attribute    | by_vars   | `str.find` | `vars(str)["find"]` | vars 绕过|
 | Bypass_Attribute    | by_dict_attr   | `str.find` | `str.__dict__["find"]` | `__dict__` 绕过|
@@ -257,7 +260,8 @@ if __name__ == "__main__":
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
-| Bypass_Keyword    | by_unicode   | `str(object=1)` | `str(ᵒbject=1)` | unicode 绕过|
+| Bypass_Keyword    | by_ligature   | `dict(system=1)` | `dict(syﬆem=1)` | 利用 NFKC 连字字符替换关键字参数名 |
+| Bypass_Keyword    | by_unicode   | `str(object=1)` | `str(ᵒbject=1)` | unicode 绕过关键字参数名拦截 |
 
 |  类   |   方法名  | payload | bypass | 解释说明 |
 | ----- | -------- | ------- | ------- | ----- |
